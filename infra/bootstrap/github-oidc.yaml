@@ -293,6 +293,15 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/feedback-*-${Ambiente}
                   - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/feedback-${Ambiente}-*
+              # A tag de stack também é aplicada ao Stream, cujo ARN é <tabela>/stream/<rótulo>.
+              # O padrão feedback-<amb>-* acima já casa com ele por curinga; feedback-*-<amb> não.
+              - Sid: TagsDeStreamDoAmbiente
+                Effect: Allow
+                Action:
+                  - dynamodb:ListTagsOfResource
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/feedback-*-${Ambiente}/stream/*
 
               # O sufixo :* cobre as assinaturas, cujo ARN é <tópico>:<id>.
               - Sid: TopicosDoAmbiente
