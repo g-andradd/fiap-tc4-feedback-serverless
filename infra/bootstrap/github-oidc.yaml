@@ -1,0 +1,614 @@
+# Bootstrap da conta: provedor OIDC do GitHub e uma role de deploy por ambiente.
+# Aplicado uma vez, com credencial administrativa, na stack feedback-bootstrap-oidc.
+# Fica fora do pipeline de propósito (design.md, D4): o pipeline não altera as próprias permissões.
+#
+# Convenção de nomes que as permissões assumem, em que <amb> é dev, hml ou prod:
+#   recursos nomeados:         feedback-<nome>-<amb>
+#   nomes gerados pela stack:  feedback-<amb>-<logicalId>-<aleatório>
+#   artefatos do SAM:          prefixo feedback-<amb>/ no bucket gerenciado (samconfig.toml)
+#   tag de stack:              ambiente=<amb> (samconfig.toml)
+# As roles e políticas de deploy se chamam github-deploy-feedback-<amb> para não casar com esses padrões.
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::LanguageExtensions
+Description: Provedor OIDC do GitHub e roles de deploy por ambiente da plataforma de feedback.
+
+Parameters:
+  RepositorioGitHub:
+    Type: String
+    Default: g-andradd@59920810/fiap-tc4-feedback-serverless@1445012951
+    Description: Repositório como aparece no claim sub imutável do GitHub (dono@id/repo@id). Os IDs são públicos.
+  CriarProvedorOidc:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: Use false se a conta já tiver o provedor token.actions.githubusercontent.com.
+
+Conditions:
+  DeveCriarProvedorOidc: !Equals [!Ref CriarProvedorOidc, "true"]
+
+Resources:
+  ProvedorOidc:
+    Type: AWS::IAM::OIDCProvider
+    Condition: DeveCriarProvedorOidc
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+
+  Fn::ForEach::Ambientes:
+    - Ambiente
+    - [dev, hml, prod]
+    - # Teto de permissões de toda role criada pelo deploy: mesmo que a role de deploy
+      # escreva uma política ampla em uma role nova, o efeito não passa do que está aqui.
+      LimiteFuncoes${Ambiente}:
+        Type: AWS::IAM::ManagedPolicy
+        Properties:
+          ManagedPolicyName: !Sub feedback-limite-funcoes-${Ambiente}
+          Description: !Sub Limite de permissões das roles de função do ambiente ${Ambiente}.
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: Logs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/feedback-*-${Ambiente}:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/feedback-${Ambiente}-*
+              - Sid: Tracing
+                Effect: Allow
+                Action:
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingStatisticSummaries
+                  - xray:GetSamplingTargets
+                  - xray:PutTelemetryRecords
+                  - xray:PutTraceSegments
+                Resource: "*"
+              - Sid: TabelaDoAmbiente
+                Effect: Allow
+                Action:
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:ConditionCheckItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/feedback-*-${Ambiente}/index/*
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/feedback-${Ambiente}-*
+              - Sid: StreamDoAmbiente
+                Effect: Allow
+                Action:
+                  - dynamodb:DescribeStream
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                Resource:
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/feedback-*-${Ambiente}/stream/*
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/feedback-${Ambiente}-*/stream/*
+              - Sid: ListarStreams
+                Effect: Allow
+                Action: dynamodb:ListStreams
+                Resource: "*"
+              - Sid: PublicarNoTopico
+                Effect: Allow
+                Action: sns:Publish
+                Resource:
+                  - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:feedback-${Ambiente}-*
+              - Sid: BucketDoAmbiente
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:s3:::feedback-${Ambiente}-*
+              - Sid: ObjetosDoAmbiente
+                Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::feedback-*-${Ambiente}/*
+                  - !Sub arn:${AWS::Partition}:s3:::feedback-${Ambiente}-*/*
+              - Sid: InvocarFuncaoDoAmbiente
+                Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource:
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-*-${Ambiente}:*
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-${Ambiente}-*
+              - Sid: ChavesGerenciadasViaServico
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:GenerateDataKey*
+                Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+                Condition:
+                  StringEquals:
+                    kms:ViaService:
+                      - !Sub dynamodb.${AWS::Region}.amazonaws.com
+                      - !Sub s3.${AWS::Region}.amazonaws.com
+                      - !Sub sns.${AWS::Region}.amazonaws.com
+
+      RoleDeploy${Ambiente}:
+        Type: AWS::IAM::Role
+        Properties:
+          RoleName: !Sub github-deploy-feedback-${Ambiente}
+          Description: !Sub Deploy da stack feedback-${Ambiente} pelo GitHub Actions via OIDC.
+          MaxSessionDuration: 3600
+          AssumeRolePolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: GitHubActionsNoAmbiente
+                Effect: Allow
+                Action: sts:AssumeRoleWithWebIdentity
+                Principal:
+                  Federated: !If
+                    - DeveCriarProvedorOidc
+                    - !Ref ProvedorOidc
+                    - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+                Condition:
+                  StringEquals:
+                    token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                    token.actions.githubusercontent.com:sub: !Sub repo:${RepositorioGitHub}:environment:${Ambiente}
+          ManagedPolicyArns:
+            - Ref: !Sub PermissoesRecursos${Ambiente}
+            - Ref: !Sub PermissoesAplicacao${Ambiente}
+
+      # Duas managed policies porque o conjunto passa da cota de 10.240 caracteres de política
+      # inline por role. Cada managed policy aceita até 6.144.
+      PermissoesRecursos${Ambiente}:
+        Type: AWS::IAM::ManagedPolicy
+        Properties:
+          ManagedPolicyName: !Sub github-deploy-feedback-${Ambiente}-recursos
+          Description: !Sub Stacks, artefatos, recursos de suporte e observabilidade do deploy no ambiente ${Ambiente}.
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # CloudFormation: só a stack do ambiente e a stack gerenciada do SAM.
+              # DeleteStack fica de fora: sam delete roda com o perfil administrativo.
+              - Sid: Stacks
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResource
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:ListChangeSets
+                  - cloudformation:ListStackResources
+                  - cloudformation:TagResource
+                  - cloudformation:UntagResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/feedback-${Ambiente}/*
+                  - !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/aws-sam-cli-managed-default/*
+              - Sid: TransformSam
+                Effect: Allow
+                Action: cloudformation:CreateChangeSet
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31
+
+              # Bucket de artefatos do SAM, compartilhado entre ambientes: objetos só no prefixo próprio.
+              - Sid: ArtefatosNoPrefixoDoAmbiente
+                Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::aws-sam-cli-managed-default-samclisourcebucket-*/feedback-${Ambiente}/*
+              # Criação do bucket gerenciado na primeira execução. Sem exclusão.
+              - Sid: CriarBucketDeArtefatos
+                Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:PutBucketTagging
+                  - s3:PutBucketVersioning
+                  - s3:PutEncryptionConfiguration
+                Resource: !Sub arn:${AWS::Partition}:s3:::aws-sam-cli-managed-default-samclisourcebucket-*
+              # Leituras que o CloudFormation faz ao criar e atualizar um AWS::S3::Bucket.
+              - Sid: LerBuckets
+                Effect: Allow
+                Action:
+                  - s3:GetAccelerateConfiguration
+                  - s3:GetAnalyticsConfiguration
+                  - s3:GetBucketAbac
+                  - s3:GetBucketAcl
+                  - s3:GetBucketCORS
+                  - s3:GetBucketLocation
+                  - s3:GetBucketLogging
+                  - s3:GetBucketMetadataTableConfiguration
+                  - s3:GetBucketNotification
+                  - s3:GetBucketObjectLockConfiguration
+                  - s3:GetBucketOwnershipControls
+                  - s3:GetBucketPolicy
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:GetBucketTagging
+                  - s3:GetBucketVersioning
+                  - s3:GetBucketWebsite
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetIntelligentTieringConfiguration
+                  - s3:GetInventoryConfiguration
+                  - s3:GetLifecycleConfiguration
+                  - s3:GetMetricsConfiguration
+                  - s3:GetReplicationConfiguration
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::aws-sam-cli-managed-default-samclisourcebucket-*
+                  - !Sub arn:${AWS::Partition}:s3:::feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:s3:::feedback-${Ambiente}-*
+              # O padrão feedback-*-<amb> cobre o nome com o ID da conta no meio.
+              - Sid: BucketsDoAmbiente
+                Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:DeleteBucketPolicy
+                  - s3:PutBucketOwnershipControls
+                  - s3:PutBucketPolicy
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:PutBucketTagging
+                  - s3:PutBucketVersioning
+                  - s3:PutEncryptionConfiguration
+                  - s3:PutLifecycleConfiguration
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:s3:::feedback-${Ambiente}-*
+
+              - Sid: TabelasDoAmbiente
+                Effect: Allow
+                Action:
+                  - dynamodb:CreateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:DescribeContinuousBackups
+                  - dynamodb:DescribeContributorInsights
+                  - dynamodb:DescribeKinesisStreamingDestination
+                  - dynamodb:DescribeTable
+                  - dynamodb:DescribeTimeToLive
+                  - dynamodb:GetResourcePolicy
+                  - dynamodb:ListTagsOfResource
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                  - dynamodb:UpdateContinuousBackups
+                  - dynamodb:UpdateContributorInsights
+                  - dynamodb:UpdateTable
+                  - dynamodb:UpdateTimeToLive
+                Resource:
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/feedback-${Ambiente}-*
+
+              # O sufixo :* cobre as assinaturas, cujo ARN é <tópico>:<id>.
+              - Sid: TopicosDoAmbiente
+                Effect: Allow
+                Action:
+                  - sns:CreateTopic
+                  - sns:DeleteTopic
+                  - sns:GetDataProtectionPolicy
+                  - sns:GetSubscriptionAttributes
+                  - sns:GetTopicAttributes
+                  - sns:ListSubscriptionsByTopic
+                  - sns:ListTagsForResource
+                  - sns:SetSubscriptionAttributes
+                  - sns:SetTopicAttributes
+                  - sns:Subscribe
+                  - sns:TagResource
+                  - sns:Unsubscribe
+                  - sns:UntagResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:feedback-*-${Ambiente}:*
+                  - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:feedback-${Ambiente}-*
+
+              - Sid: AlarmesDoAmbiente
+                Effect: Allow
+                Action:
+                  - cloudwatch:DeleteAlarms
+                  - cloudwatch:ListTagsForResource
+                  - cloudwatch:PutMetricAlarm
+                  - cloudwatch:TagResource
+                  - cloudwatch:UntagResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:feedback-${Ambiente}-*
+              # O ARN de dashboard não tem região.
+              - Sid: DashboardsDoAmbiente
+                Effect: Allow
+                Action:
+                  - cloudwatch:DeleteDashboards
+                  - cloudwatch:GetDashboard
+                  - cloudwatch:ListTagsForResource
+                  - cloudwatch:PutDashboard
+                  - cloudwatch:TagResource
+                  - cloudwatch:UntagResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:cloudwatch::${AWS::AccountId}:dashboard/feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:cloudwatch::${AWS::AccountId}:dashboard/feedback-${Ambiente}-*
+
+              # Ações sem restrição útil por recurso: só leitura.
+              - Sid: LeiturasSemRestricaoPorRecurso
+                Effect: Allow
+                Action:
+                  - cloudwatch:DescribeAlarms
+                  - kms:DescribeKey
+                  - kms:ListAliases
+                  - logs:DescribeIndexPolicies
+                  - logs:DescribeLogGroups
+                  - logs:DescribeResourcePolicies
+                Resource: "*"
+              # Chaves gerenciadas pela AWS, usadas pelos serviços em nome de quem faz o deploy.
+              - Sid: ChavesGerenciadasViaServico
+                Effect: Allow
+                Action:
+                  - kms:CreateGrant
+                  - kms:Decrypt
+                  - kms:Encrypt
+                  - kms:GenerateDataKey
+                  - kms:RevokeGrant
+                Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+                Condition:
+                  StringEquals:
+                    kms:ViaService:
+                      - !Sub dynamodb.${AWS::Region}.amazonaws.com
+                      - !Sub lambda.${AWS::Region}.amazonaws.com
+                      - !Sub s3.${AWS::Region}.amazonaws.com
+                      - !Sub sns.${AWS::Region}.amazonaws.com
+
+              # O pipeline não mexe nas próprias permissões (D4), mesmo que um Allow acima seja ampliado.
+              - Sid: NegaAlterarBootstrap
+                Effect: Deny
+                Action: iam:*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/github-deploy-feedback-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/github-deploy-feedback-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/feedback-limite-funcoes-*
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+              - Sid: NegaAlterarStackDeBootstrap
+                Effect: Deny
+                Action: cloudformation:*
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/feedback-bootstrap-oidc/*
+
+      PermissoesAplicacao${Ambiente}:
+        Type: AWS::IAM::ManagedPolicy
+        Properties:
+          ManagedPolicyName: !Sub github-deploy-feedback-${Ambiente}-aplicacao
+          Description: !Sub Funções, API, agendamento, IAM e logs do deploy no ambiente ${Ambiente}.
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Inclui versões e aliases, exigidos pelo SnapStart e pelo AutoPublishAlias.
+              - Sid: FuncoesDoAmbiente
+                Effect: Allow
+                Action:
+                  - lambda:AddPermission
+                  - lambda:CreateAlias
+                  - lambda:CreateFunction
+                  - lambda:DeleteAlias
+                  - lambda:DeleteFunction
+                  - lambda:DeleteFunctionConcurrency
+                  - lambda:GetAlias
+                  - lambda:GetFunction
+                  - lambda:GetFunctionCodeSigningConfig
+                  - lambda:GetFunctionConfiguration
+                  - lambda:GetFunctionRecursionConfig
+                  - lambda:GetFunctionScalingConfig
+                  - lambda:GetPolicy
+                  - lambda:GetProvisionedConcurrencyConfig
+                  - lambda:GetRuntimeManagementConfig
+                  - lambda:ListAliases
+                  - lambda:ListTags
+                  - lambda:ListVersionsByFunction
+                  - lambda:PublishVersion
+                  - lambda:PutFunctionConcurrency
+                  - lambda:PutFunctionRecursionConfig
+                  - lambda:PutRuntimeManagementConfig
+                  - lambda:RemovePermission
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:UpdateAlias
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                Resource:
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-*-${Ambiente}:*
+                  - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-${Ambiente}-*
+              # O ARN do mapeamento é um UUID. A restrição ao ambiente vem de lambda:FunctionArn.
+              - Sid: CriarMapeamentoParaFuncaoDoAmbiente
+                Effect: Allow
+                Action: lambda:CreateEventSourceMapping
+                Resource: "*"
+                Condition:
+                  ArnLike:
+                    lambda:FunctionArn:
+                      - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-*-${Ambiente}
+                      - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-*-${Ambiente}:*
+                      - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-${Ambiente}-*
+              - Sid: AlterarMapeamentoDeFuncaoDoAmbiente
+                Effect: Allow
+                Action:
+                  - lambda:DeleteEventSourceMapping
+                  - lambda:GetEventSourceMapping
+                  - lambda:UpdateEventSourceMapping
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:event-source-mapping:*
+                Condition:
+                  ArnLike:
+                    lambda:FunctionArn:
+                      - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-*-${Ambiente}
+                      - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-*-${Ambiente}:*
+                      - !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:feedback-${Ambiente}-*
+              # Tags não aceitam lambda:FunctionArn. A tag de stack é aplicada também ao mapeamento.
+              - Sid: TagsDeMapeamento
+                Effect: Allow
+                Action:
+                  - lambda:ListTags
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:event-source-mapping:*
+
+              # O ARN usa o ID da API, não o nome: não há como restringir por ambiente aqui.
+              # A negação logo abaixo cobre as APIs marcadas com a tag de outro ambiente.
+              - Sid: ApisNaRegiao
+                Effect: Allow
+                Action:
+                  - apigateway:DELETE
+                  - apigateway:GET
+                  - apigateway:PATCH
+                  - apigateway:POST
+                  - apigateway:PUT
+                Resource:
+                  - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis
+                  - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis/*
+                  - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/restapis
+                  - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/restapis/*
+                  - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/tags/*
+              - Sid: NegaEscritaEmApiDeOutroAmbiente
+                Effect: Deny
+                Action:
+                  - apigateway:DELETE
+                  - apigateway:PATCH
+                  - apigateway:POST
+                  - apigateway:PUT
+                Resource: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/*
+                Condition:
+                  "Null":
+                    aws:ResourceTag/ambiente: "false"
+                  StringNotEquals:
+                    aws:ResourceTag/ambiente: !Ref Ambiente
+
+              - Sid: AgendamentosDoAmbiente
+                Effect: Allow
+                Action:
+                  - scheduler:CreateSchedule
+                  - scheduler:DeleteSchedule
+                  - scheduler:GetSchedule
+                  - scheduler:UpdateSchedule
+                Resource:
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/default/feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/default/feedback-${Ambiente}-*
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/feedback-*-${Ambiente}/*
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/feedback-${Ambiente}-*/*
+              - Sid: GruposDeAgendamentoDoAmbiente
+                Effect: Allow
+                Action:
+                  - scheduler:CreateScheduleGroup
+                  - scheduler:DeleteScheduleGroup
+                  - scheduler:GetScheduleGroup
+                  - scheduler:ListTagsForResource
+                  - scheduler:TagResource
+                  - scheduler:UntagResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule-group/feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule-group/feedback-${Ambiente}-*
+
+              # Contenção de escalada. Toda role nova e toda alteração de permissão exigem o boundary
+              # do ambiente, que a role de deploy não consegue alterar nem remover.
+              - Sid: EscreverRolesComLimite
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:PutRolePermissionsBoundary
+                  - iam:PutRolePolicy
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:UpdateRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/feedback-${Ambiente}-*
+                Condition:
+                  StringEquals:
+                    iam:PermissionsBoundary: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/feedback-limite-funcoes-${Ambiente}
+              # Só as políticas gerenciadas que o SAM anexa às funções do projeto.
+              - Sid: AnexarPoliticasDoSam
+                Effect: Allow
+                Action:
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/feedback-${Ambiente}-*
+                Condition:
+                  StringEquals:
+                    iam:PermissionsBoundary: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/feedback-limite-funcoes-${Ambiente}
+                  ArnEquals:
+                    iam:PolicyARN:
+                      - !Sub arn:${AWS::Partition}:iam::aws:policy/AWSXrayWriteOnlyAccess
+                      - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+                      - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaDynamoDBExecutionRole
+              - Sid: LerETagearRoles
+                Effect: Allow
+                Action:
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListAttachedRolePolicies
+                  - iam:ListRolePolicies
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:UpdateRoleDescription
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/feedback-${Ambiente}-*
+              - Sid: PassarRolesParaLambdaEScheduler
+                Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/feedback-${Ambiente}-*
+                Condition:
+                  StringEquals:
+                    iam:PassedToService:
+                      - lambda.amazonaws.com
+                      - scheduler.amazonaws.com
+
+              - Sid: GruposDeLogDoAmbiente
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DeleteDataProtectionPolicy
+                  - logs:DeleteLogGroup
+                  - logs:DeleteMetricFilter
+                  - logs:DeleteRetentionPolicy
+                  - logs:DescribeMetricFilters
+                  - logs:GetDataProtectionPolicy
+                  - logs:ListTagsForResource
+                  - logs:PutMetricFilter
+                  - logs:PutRetentionPolicy
+                  - logs:TagResource
+                  - logs:UntagResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/feedback-*-${Ambiente}
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/feedback-*-${Ambiente}:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/feedback-${Ambiente}-*
+
+Outputs:
+  ProvedorOidcArn:
+    Description: ARN do provedor OIDC do GitHub
+    Value: !If
+      - DeveCriarProvedorOidc
+      - !Ref ProvedorOidc
+      - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+  RoleDeployDevArn:
+    Description: Valor de AWS_ROLE_ARN no ambiente dev do GitHub
+    Value: !GetAtt RoleDeploydev.Arn
+  RoleDeployHmlArn:
+    Description: Valor de AWS_ROLE_ARN no ambiente hml do GitHub
+    Value: !GetAtt RoleDeployhml.Arn
+  RoleDeployProdArn:
+    Description: Valor de AWS_ROLE_ARN no ambiente prod do GitHub
+    Value: !GetAtt RoleDeployprod.Arn
