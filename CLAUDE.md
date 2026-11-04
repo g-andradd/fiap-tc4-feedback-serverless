@@ -29,7 +29,7 @@ A sessão principal atua como orquestradora. Ela não implementa sozinha: distri
 Valem para o change `add-fundacao-projeto`, salvo indicação em contrário.
 
 - O change `add-fundacao-projeto` está aprovado.
-- Java 25 confirmado: Corretto 25 no ambiente local e, no CI, `actions/setup-java` com `distribution: corretto` e `java-version: 25`.
+- Java 25 confirmado: um JDK 25 no `JAVA_HOME` no ambiente local (decisão de 04/11/2026) e, no CI, Corretto 25, com `actions/setup-java`, `distribution: corretto` e `java-version: 25`.
 - Configuração via `gh`, mostrando antes de cada comando o que ele vai fazer:
   - ambientes `dev`, `hml` e `prod`, com a variável `AWS_ROLE_ARN` em cada um;
   - aprovação manual em `prod`, com `g-andradd` como revisor e sem ativar "prevent self-review", porque o projeto é individual;
