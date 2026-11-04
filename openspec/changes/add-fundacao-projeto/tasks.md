@@ -31,10 +31,10 @@ Legenda de responsável: **[IA]** feito pelos agentes, **[Gabriel]** ação manu
 - [x] 5.1 [IA] Criar `.github/workflows/ci.yml` (PR para `develop`, `release/**` e `main`: build, testes, `sam validate --lint`)
 - [x] 5.2 [IA] Criar `.github/workflows/deploy.yml` (push em `develop`, `release/**` e `main`, com mapeamento branch para ambiente e autenticação OIDC)
 - [x] 5.3 [IA] Configurar os ambientes `dev`, `hml` e `prod` no GitHub com a variável `AWS_ROLE_ARN`, e regra de aprovação manual em `prod`
-- [ ] 5.4 [IA] Proteger as branches `main` e `develop` (merge somente via PR com CI verde)
+- [x] 5.4 [IA] Proteger as branches `main` e `develop` (merge somente via PR com CI verde)
 
 ## 6. Validação
-- [ ] 6.1 [Gabriel] Abrir PR `feature/add-fundacao-projeto` para `develop` e conferir o CI verde
-- [ ] 6.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`
+- [x] 6.1 [Gabriel] Abrir PR `feature/add-fundacao-projeto` para `develop` e conferir o CI verde
+- [x] 6.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`
 - [ ] 6.3 [Gabriel] Confirmar a assinatura de e-mail do SNS de dev
-- [ ] 6.4 [IA] Agente QA confere os cenários das specs contra a stack implantada e registra o resultado
+- [x] 6.4 [IA] Agente QA confere os cenários das specs contra a stack implantada e registra o resultado
