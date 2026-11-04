@@ -86,6 +86,31 @@ Não reprovam cenário, mas ficam registradas para decisão.
 - **O6. Drift não verificado.** Os recursos estão com `NOT_CHECKED`, porque a detecção de drift inicia uma operação na AWS. A comparação foi feita diretamente nos recursos.
 - **O7. Acentos nas descrições.** Na leitura pela CLI, os textos acentuados do bootstrap e as descrições dos outputs vêm com `?`. Tirando esses caracteres, o template do bootstrap implantado é idêntico ao do repositório. A origem não foi apurada, e não há efeito funcional.
 
+## Decisões do Gabriel sobre as observações (04/11/2026)
+
+A matriz acima foi feita antes destas decisões e continua como estava. O texto de O3, O4 e O5 descreve o que foi observado na data do QA.
+
+### O3: resolvida
+
+O devops configurou a deployment branch policy de cada ambiente via `gh`:
+
+| Ambiente | Branches aceitas | Regras depois da mudança |
+|---|---|---|
+| `dev` | `develop` | `branch_policy` |
+| `hml` | `release/*` | `branch_policy` |
+| `prod` | `main` | `required_reviewers` (`g-andradd`, `prevent_self_review: false`) e `branch_policy` |
+
+Evidência: `gh api repos/g-andradd/fiap-tc4-feedback-serverless/environments/<ambiente>` retorna `custom_branch_policies: true` e `protected_branches: false` nos três, e `.../environments/<ambiente>/deployment-branch-policies` retorna a lista da tabela. A aprovação manual de `prod` foi preservada.
+
+Limite: conferido pela API. Nenhum workflow rodou depois da mudança, então nem o caminho permitido nem a recusa de uma branch fora da lista foram observados. O próximo merge em `develop` exercita o caminho permitido em dev.
+
+### O4 e O5: aceitas
+
+Ficam como estão, por decisão consciente. O documentador leva as duas a `docs/seguranca.md` no change de documentação.
+
+- **O4, bypass de administrador:** `can_admins_bypass` continua `true`. A conferência de 04/11/2026 mostra esse valor nos três ambientes, não só em `prod`. O único administrador é o próprio revisor, em um projeto individual.
+- **O5, `strict: false`:** a proteção continua sem exigir que a branch do PR esteja atualizada com a base. Um PR verde e defasado pode ser mergeado.
+
 ## Testes e coleção Postman
 
 Nenhum teste foi adicionado a `src/test`: este change não tem código Java, e os cenários dependem de infraestrutura real, cujo exercício exigiria escrita, fora do limite desta validação. Os cenários pendentes estão na tabela de status acima, e não foram tratados como cobertos.
