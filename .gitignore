@@ -10,3 +10,6 @@ target/
 
 # Variáveis de ambiente locais
 .env*
+
+# Permissões locais do Claude Code
+.claude/settings.local.json
