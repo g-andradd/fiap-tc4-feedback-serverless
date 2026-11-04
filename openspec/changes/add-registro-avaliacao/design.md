@@ -83,6 +83,8 @@ O handler é `RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse>`:
 
 Campos extras não são lidos. O cliente não consegue influenciar `id`, `urgencia`, `dataEnvio` nem `criadoEm`.
 
+**Limite aceito pelo Gabriel em 04/11/2026:** número com mais de 1000 dígitos ultrapassa o limite padrão do Jackson (`StreamReadConstraints`), e o corpo inteiro responde 400 `CORPO_INVALIDO`, mesmo em campo extra ou em `nota`. Isso contraria, só nesse caso, a D8 da proposta (campo extra não causa rejeição) e a D6 (a `nota` seria apontada em `campos`). Nada é gravado e nada vaza, e nenhum uso real envia um número desse tamanho.
+
 Alternativa descartada: desserializar em um record com `int nota`. O Jackson faz coerções como `"7"` e `7.0` para inteiro conforme a configuração, e a spec precisa distinguir esses casos.
 
 ### D5. Respostas
@@ -95,7 +97,7 @@ Todas com `content-type: application/json`:
 | Corpo inválido | 400 | `{"erro":"CORPO_INVALIDO","mensagem":"O corpo da requisição precisa ser um objeto JSON válido.","campos":[]}` |
 | Falha interna | 500 | `{"erro":"ERRO_INTERNO","mensagem":"Não foi possível registrar a avaliação. Tente novamente."}` |
 
-`campos` traz só nomes, nunca valores. O 500 vem de um `catch` no handler, que registra o erro em log e devolve texto fixo.
+`campos` traz só nomes, nunca valores. O 500 vem de um `catch` no handler, que registra o erro em log e devolve texto fixo. O cliente do DynamoDB usa `apiCallTimeout` de 8 segundos, abaixo do `Timeout` de 10 da função: sem isso, uma falha prolongada encerraria a função antes do `catch`, e o cliente não receberia esse 500. Valor aprovado pelo Gabriel em 04/11/2026.
 
 Alternativa descartada: mensagem por campo, com o motivo. A spec exige só o nome do campo, e o motivo aumentaria o que precisa ser testado sem pedido.
 
@@ -112,9 +114,11 @@ Verificado localmente: um módulo com as três APIs, sem `aspectjrt` no classpat
 
 O que se perde em relação às anotações, segundo as mesmas páginas:
 - `logError` e `flushBufferOnUncaughtError` só existem com `@Logging`. O handler captura a exceção e registra o erro por conta própria.
-- A página de tracing só cita a anotação `ColdStart` junto de `@Tracing`. Sem ela, o cold start fica registrado pela métrica `captureColdStartMetric`.
-- Captura de resposta e exceção no trace não é automática, o que também ajuda D9.
+- A página de tracing só cita a anotação `ColdStart` junto de `@Tracing`, então o trace não marca cold start.
+- A captura de resposta e exceção no trace não é automática no Powertools. O instrumentor do SDK, que vem com `powertools-tracing`, captura a exceção do SDK por conta própria (D9).
 - `metrics.flush()` é manual e fica em `finally`. As métricas saem em formato EMF nos logs, então a role não precisa de `cloudwatch:PutMetricData` ([boas práticas](https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html)).
+
+**A métrica `ColdStart` não serve com SnapStart.** O Powertools só considera cold start quando `AWS_LAMBDA_INITIALIZATION_TYPE` é `on-demand`. Verificado localmente, com a variável definida à mão: com `snap-start`, `captureColdStartMetric` não emitiu métrica e `cold_start` ficou `false` nos logs; com `on-demand`, emitiu (observação B do `qa.md`). A chamada fica no handler, mas não mede o caso deste template. Por decisão do Gabriel em 04/11/2026, o dashboard de `add-observabilidade-seguranca` usa a duração de restauração do SnapStart no lugar do cold start. A [página de monitoramento do SnapStart](https://docs.aws.amazon.com/lambda/latest/dg/snapstart-monitoring.html) (04/11/2026) mostra esse valor no campo `Restore Duration` da linha `REPORT` dos logs e no subsegmento `Restore` do X-Ray, e não cita métrica do CloudWatch para ele, então o dashboard precisa extrair o valor dos logs.
 
 **Limpeza do `pom.xml`, tarefa 1.1:** sai `aspectjrt`, `aspectj-maven-plugin`, as propriedades `aspectj.version` e `aspectj-maven-plugin.version` e os comentários sobre anotações. A documentação de logging lista `powertools-logging` junto de `powertools-logging-log4j`, então os dois entram em `dependencyManagement`.
 
@@ -155,15 +159,19 @@ Mesmo assim, a mesma página avisa que mudar só o valor de um parâmetro não p
 
 Alternativa descartada: apontar os gatilhos para `$LATEST`. Desligaria o SnapStart sem nenhum erro aparente.
 
-### D9. Nenhum dado do aluno em log, em nenhum nível
-A spec proíbe em INFO. A decisão de implementação é mais estrita: `descricao`, `nota` e corpo bruto não vão para log em nível nenhum, inclusive WARN, ERROR e DEBUG, e nem para anotações ou metadados de trace. Não muda a spec, só cumpre com folga.
+### D9. Nosso código não registra dado do aluno, em nenhum nível
+A spec proíbe em INFO. A decisão de implementação é mais estrita: o nosso código não envia `descricao`, `nota` nem corpo bruto para log em nível nenhum, inclusive WARN, ERROR e DEBUG, nem para anotações ou metadados de trace. Não muda a spec, só cumpre com folga.
+
+**Limites conhecidos, aceitos pelo Gabriel em 04/11/2026.** Vêm de bibliotecas, não do nosso código:
+- **X-Ray:** o instrumentor do SDK, que vem com `powertools-tracing`, grava a mensagem e a pilha da exceção do SDK no subsegmento. O marcador enviado em `descricao` não foi ao trace, nem em sucesso nem em falha, porque no `PutItem` ele só captura `TableName`. O que não dá para saber sem a conta é se uma mensagem real de erro do DynamoDB cita valores do item. Verificado localmente com HTTP falso (observação A do `qa.md`). A alternativa de excluir o instrumentor perderia o subsegmento automático do DynamoDB.
+- **DEBUG e TRACE:** nesses níveis, o SDK registra a mensagem da exceção, e a leitura do bytecode indica o mesmo no X-Ray. O Powertools aplica o nível a todos os loggers, então o `log4j2.xml` não isola isso. A regra vale com a função em INFO, o valor de `POWERTOOLS_LOG_LEVEL` em `Globals` (D10). Verificado localmente (observação C do `qa.md`).
 
 - Pode ir para log: `id`, `urgencia`, nomes de campos inválidos, nome da classe da exceção, ID da requisição.
 - Exceção do Jackson: registrar só a classe, nunca a mensagem nem a pilha, porque podem citar trechos da entrada.
 - Exceção do SDK: registrar a classe, o código de erro e o ID da requisição, sem a mensagem. Regra uniforme, sem precisar provar o que cada serviço devolve na mensagem. Para diagnóstico, o código de erro basta na maioria dos casos, como `AccessDeniedException`.
 - `withLogging` usa a forma sem `input`, e nada de log do evento recebido.
 
-Alternativa descartada: permitir descrição em ERROR para ajudar no diagnóstico. O caso típico de erro na função é falha de infraestrutura, em que o conteúdo não ajuda, e a regra única é mais fácil de testar e de defender na parte de segurança.
+Alternativa descartada: permitir descrição em ERROR para ajudar no diagnóstico. O caso típico de erro na função é falha de infraestrutura, em que o conteúdo não ajuda, e uma regra única é mais fácil de testar e de defender na parte de segurança.
 
 ### D10. `Globals` definitivo
 Este change é o único que altera `Globals`. O bloco já contempla as três funções:
@@ -189,7 +197,9 @@ Cada função declara `AWS::Logs::LogGroup` com retenção de 14 dias e a funç�
 
 Sem isso, o [Lambda cria o grupo sozinho](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-cloudwatchlogs.html), e declará-lo depois falharia por nome já existente. O `DependsOn` importa com SnapStart: a inicialização roda ao publicar a versão e já escreve log, então o grupo precisa existir antes.
 
-Alternativa descartada: deixar para `add-observabilidade-seguranca`. Nessa altura os grupos já existiriam, criados pelo Lambda.
+Decisão do Gabriel em 04/11/2026: 14 dias em todos os ambientes neste change. A retenção por ambiente fica para `add-observabilidade-seguranca`.
+
+Alternativa descartada: deixar os grupos para `add-observabilidade-seguranca`. Nessa altura eles já existiriam, criados pelo Lambda.
 
 ### D12. Build e cliente HTTP
 **Confirmado, sem ajuste no `deploy.yml`:** `mvn -B install` seguido de `sam build` funciona em módulo que depende de `dominio`. Verificado localmente com o SAM CLI 1.171.0 e JDK 25, em uma cópia do parent com módulo `dominio` e função dependente:

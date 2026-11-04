@@ -27,8 +27,8 @@
         <aws-lambda-core.version>1.4.1</aws-lambda-core.version>
         <aws-lambda-events.version>3.16.1</aws-lambda-events.version>
         <powertools.version>2.11.0</powertools.version>
-        <!-- Java 25 exige AspectJ 1.9.25 ou superior. Versões anteriores falham no ajc. -->
-        <aspectj.version>1.9.27</aspectj.version>
+        <!-- Mesma versão do jackson.version do powertools-parent 2.11.0. Suba junto com o Powertools. -->
+        <jackson.version>2.22.3</jackson.version>
         <junit.version>5.14.4</junit.version>
         <assertj.version>3.27.7</assertj.version>
         <mockito.version>5.24.0</mockito.version>
@@ -41,7 +41,6 @@
         <maven-install-plugin.version>3.2.0</maven-install-plugin.version>
         <maven-deploy-plugin.version>3.2.0</maven-deploy-plugin.version>
         <maven-dependency-plugin.version>3.11.0</maven-dependency-plugin.version>
-        <aspectj-maven-plugin.version>1.14.1</aspectj-maven-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -87,6 +86,11 @@
 
             <dependency>
                 <groupId>software.amazon.lambda</groupId>
+                <artifactId>powertools-logging</artifactId>
+                <version>${powertools.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>software.amazon.lambda</groupId>
                 <artifactId>powertools-logging-log4j</artifactId>
                 <version>${powertools.version}</version>
             </dependency>
@@ -100,11 +104,11 @@
                 <artifactId>powertools-metrics</artifactId>
                 <version>${powertools.version}</version>
             </dependency>
-            <!-- O Powertools declara o aspectjrt como provided: quem usa as anotações precisa declarar no módulo. -->
+
             <dependency>
-                <groupId>org.aspectj</groupId>
-                <artifactId>aspectjrt</artifactId>
-                <version>${aspectj.version}</version>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
             </dependency>
 
             <dependency>
@@ -159,46 +163,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
                     <version>${maven-dependency-plugin.version}</version>
-                </plugin>
-                <!-- Inativo até um módulo declarar o plugin. Só é necessário para as anotações do Powertools. -->
-                <plugin>
-                    <groupId>dev.aspectj</groupId>
-                    <artifactId>aspectj-maven-plugin</artifactId>
-                    <version>${aspectj-maven-plugin.version}</version>
-                    <configuration>
-                        <complianceLevel>${maven.compiler.release}</complianceLevel>
-                        <source>${maven.compiler.release}</source>
-                        <target>${maven.compiler.release}</target>
-                        <encoding>${project.build.sourceEncoding}</encoding>
-                        <aspectLibraries>
-                            <aspectLibrary>
-                                <groupId>software.amazon.lambda</groupId>
-                                <artifactId>powertools-logging</artifactId>
-                            </aspectLibrary>
-                            <aspectLibrary>
-                                <groupId>software.amazon.lambda</groupId>
-                                <artifactId>powertools-tracing</artifactId>
-                            </aspectLibrary>
-                            <aspectLibrary>
-                                <groupId>software.amazon.lambda</groupId>
-                                <artifactId>powertools-metrics</artifactId>
-                            </aspectLibrary>
-                        </aspectLibraries>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <goals>
-                                <goal>compile</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                    <dependencies>
-                        <dependency>
-                            <groupId>org.aspectj</groupId>
-                            <artifactId>aspectjtools</artifactId>
-                            <version>${aspectj.version}</version>
-                        </dependency>
-                    </dependencies>
                 </plugin>
             </plugins>
         </pluginManagement>
