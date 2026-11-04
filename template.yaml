@@ -25,6 +25,20 @@ Conditions:
 Globals:
   Function:
     PermissionsBoundary: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/feedback-limite-funcoes-${Stage}
+    Runtime: java25
+    Architectures:
+      - x86_64
+    MemorySize: 512
+    Timeout: 30
+    Tracing: Active
+    AutoPublishAlias: live
+    SnapStart:
+      ApplyOn: PublishedVersions
+    Environment:
+      Variables:
+        AMBIENTE: !Ref Stage
+        POWERTOOLS_LOG_LEVEL: INFO
+        POWERTOOLS_METRICS_NAMESPACE: FeedbackServerless
 
 Resources:
   TabelaAvaliacoes:
@@ -107,6 +121,52 @@ Resources:
               Bool:
                 aws:SecureTransport: "false"
 
+  ApiAvaliacoes:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: !Sub feedback-api-${Stage}
+      FailOnWarnings: true
+      Tags:
+        ambiente: !Ref Stage
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+
+  LogRegistrarAvaliacao:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/feedback-registrar-avaliacao-${Stage}
+      RetentionInDays: 14
+
+  RegistrarAvaliacao:
+    Type: AWS::Serverless::Function
+    DependsOn: LogRegistrarAvaliacao
+    Properties:
+      FunctionName: !Sub feedback-registrar-avaliacao-${Stage}
+      CodeUri: functions/registrar-avaliacao
+      Handler: br.com.fiap.feedback.registro.RegistrarAvaliacaoHandler::handleRequest
+      Timeout: 10
+      AutoPublishAliasAllProperties: true
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: registrar-avaliacao
+          TABELA_AVALIACOES: !Ref TabelaAvaliacoes
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: GravarAvaliacao
+              Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt TabelaAvaliacoes.Arn
+      Events:
+        PostAvaliacao:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ApiAvaliacoes
+            Method: POST
+            Path: /avaliacao
+            PayloadFormatVersion: "2.0"
+
 Outputs:
   TabelaAvaliacoesNome:
     Description: Nome da tabela de avaliações
@@ -129,3 +189,12 @@ Outputs:
   BucketRelatoriosArn:
     Description: ARN do bucket de relatórios
     Value: !GetAtt BucketRelatorios.Arn
+  ApiAvaliacoesUrl:
+    Description: URL do endpoint POST /avaliacao
+    Value: !Sub https://${ApiAvaliacoes}.execute-api.${AWS::Region}.${AWS::URLSuffix}/avaliacao
+  RegistrarAvaliacaoNome:
+    Description: Nome da função de registro
+    Value: !Ref RegistrarAvaliacao
+  RegistrarAvaliacaoAliasArn:
+    Description: ARN do alias live da função de registro
+    Value: !Ref RegistrarAvaliacao.Alias
