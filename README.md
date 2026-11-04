@@ -2,7 +2,7 @@
 
 Tech Challenge da Fase 4 da pós-graduação em Arquitetura e Desenvolvimento Java (FIAP). Estudantes avaliam aulas com uma descrição e uma nota. Administradores recebem aviso imediato quando a avaliação é crítica e um relatório semanal com a consolidação dos feedbacks.
 
-Projeto em fase de fundação: os módulos das funções existem, mas ainda não têm código.
+Estado atual: a função `registrar-avaliacao` está implementada e testada localmente, mas ainda não foi implantada na AWS. `notificar-critica` e `gerar-relatorio-semanal` ainda não têm código.
 
 ## Stack
 
@@ -18,6 +18,7 @@ Projeto em fase de fundação: os módulos das funções existem, mas ainda não
 ```
 .
 ├── .github/workflows/            # pipelines de CI e deploy
+├── docs/postman/                 # coleção Postman de POST /avaliacao
 ├── functions/
 │   ├── dominio/                  # regras puras, sem SDK da AWS
 │   ├── registrar-avaliacao/      # POST /avaliacao
@@ -37,6 +38,163 @@ Requisitos: JDK 25 no `JAVA_HOME` e Maven 3.9 ou superior.
 ```bash
 mvn -B verify
 ```
+
+Para empacotar as funções com o SAM, também é preciso o SAM CLI (testado com a versão 1.171.0), e o `install` vem antes:
+
+```bash
+mvn -B install
+sam build
+```
+
+O `sam build` copia só o `CodeUri` da função para uma pasta temporária e resolve o parent e o módulo `dominio` pelo `~/.m2`. Sem o `install`, ele falha com `JavaMavenWorkflow:MavenBuild - Maven Failed`. Os testes do módulo rodam de novo a cada `sam build`. No Git Bash do Windows, o comando pode precisar ser `sam.cmd build`.
+
+## Endpoint `POST /avaliacao`
+
+Registra uma avaliação de aula. O endpoint não tem autenticação, que está fora do escopo do projeto.
+
+Este endpoint ainda não foi implantado, e nada desta seção foi executado contra a stack. As respostas abaixo vêm de `Respostas.java` e conferem com os testes do handler, que rodam em `mvn -B verify` com o DynamoDB simulado.
+
+### Corpo da requisição
+
+| Campo | Obrigatório | Regra |
+|---|---|---|
+| `descricao` | sim | Texto com ao menos um caractere diferente de espaço, tabulação ou quebra de linha, e até 1000 caracteres Unicode. Um emoji conta como um. É gravada como recebida, sem remover espaços |
+| `nota` | sim | Número JSON inteiro de 0 a 10. `7.0`, `1e1` e `"7"` são rejeitados |
+
+Campos extras são ignorados. O cliente não define `id`, `urgencia`, `dataEnvio` nem `criadoEm`: quem preenche é a função. Cada requisição válida gera uma avaliação nova, mesmo com corpo idêntico.
+
+### Urgência
+
+Calculada a partir da nota no registro, devolvida na resposta e gravada no item.
+
+| Nota | Urgência |
+|---|---|
+| 0 a 3 | `CRITICA` |
+| 4 a 6 | `MEDIA` |
+| 7 a 10 | `BAIXA` |
+
+### Respostas
+
+Todas com `content-type: application/json`.
+
+| Caso | Status | `erro` |
+|---|---|---|
+| Avaliação registrada | 201 | |
+| Campo inválido | 400 | `ENTRADA_INVALIDA` |
+| Corpo inválido | 400 | `CORPO_INVALIDO` |
+| Falha interna | 500 | `ERRO_INTERNO` |
+
+**201, avaliação registrada.** O `id` é um UUID gerado pela função.
+
+Requisição:
+
+```json
+{"descricao": "Aula muito boa", "nota": 9}
+```
+
+Resposta:
+
+```json
+{"id":"<UUID>","urgencia":"BAIXA"}
+```
+
+**400, campo inválido.** `campos` lista o nome de todos os campos reprovados, nunca os valores. Nada é gravado.
+
+Requisição:
+
+```json
+{"descricao": "", "nota": 11}
+```
+
+Resposta:
+
+```json
+{"erro":"ENTRADA_INVALIDA","mensagem":"Um ou mais campos são inválidos.","campos":["descricao","nota"]}
+```
+
+**400, corpo inválido.** Vale para corpo ausente ou vazio, JSON malformado, JSON que não é objeto, como `[1, 2, 3]`, e objeto seguido de outros tokens. Também cai aqui o corpo que ultrapassa os limites do parser JSON, como número com mais de 1000 dígitos, mesmo em campo extra. `campos` vem vazio e nada é gravado.
+
+Requisição, com o JSON cortado:
+
+```
+{"descricao": "Aula boa", "nota": 5
+```
+
+Resposta:
+
+```json
+{"erro":"CORPO_INVALIDO","mensagem":"O corpo da requisição precisa ser um objeto JSON válido.","campos":[]}
+```
+
+**500, falha interna.** A requisição é válida, mas a gravação falhou. A mensagem é fixa, sem detalhe técnico.
+
+Requisição:
+
+```json
+{"descricao": "Aula muito boa", "nota": 9}
+```
+
+Resposta:
+
+```json
+{"erro":"ERRO_INTERNO","mensagem":"Não foi possível registrar a avaliação. Tente novamente."}
+```
+
+O template também limita a rota a 10 requisições por segundo, com rajada de 20. O excesso recebe 429 do próprio API Gateway, sem invocar a função.
+
+### Testar depois do deploy
+
+A stack `feedback-dev` é publicada pelo pipeline `deploy.yml` a cada push em `develop`. Nos comandos com `aws`, acrescente `--profile tc4-admin` se a sua credencial padrão não for dessa conta.
+
+**1. Obter a URL do endpoint**, no output `ApiAvaliacoesUrl` da stack:
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name feedback-dev \
+  --query "Stacks[0].Outputs[?OutputKey=='ApiAvaliacoesUrl'].OutputValue" \
+  --output text \
+  --region sa-east-1
+```
+
+O valor tem o formato `https://<ID_DA_API>.execute-api.sa-east-1.amazonaws.com/avaliacao`, já com o caminho.
+
+**2. Enviar uma avaliação**, usando essa URL como está:
+
+```bash
+curl -i -X POST "https://<ID_DA_API>.execute-api.sa-east-1.amazonaws.com/avaliacao" \
+  -H "Content-Type: application/json" \
+  -d '{"descricao": "Aula muito boa", "nota": 9}'
+```
+
+**3. Rodar a coleção Postman**, em `docs/postman/feedback-serverless.postman_collection.json`. Importe o arquivo e defina a variável de coleção `baseUrl` com o valor de `ApiAvaliacoesUrl` **sem o `/avaliacao` do final**, porque cada requisição já monta a URL como `{{baseUrl}}/avaliacao`. Com a URL completa, a chamada iria para `/avaliacao/avaliacao`, rota que não existe.
+
+```
+baseUrl = https://<ID_DA_API>.execute-api.sa-east-1.amazonaws.com
+```
+
+A coleção traz 33 requisições, cada uma com testes de status e corpo: 12 de sucesso e limites aceitos, 7 de rejeição de `descricao`, 9 de `nota`, 1 com dois campos inválidos e 4 de corpo malformado. O valor padrão de `baseUrl` é `https://exemplo.invalid`, que não responde. Até aqui ela só rodou localmente, com Newman, contra uma ponte HTTP para o handler com o DynamoDB simulado. O caso de 500 não está na coleção, porque uma requisição não consegue provocar a falha de gravação.
+
+## Conferir o SnapStart no alias
+
+Passo a seguir depois do deploy: esta conferência ainda não foi feita, porque a stack ainda não recebeu a função.
+
+O SnapStart só vale em versões publicadas e aliases. Por isso o comando consulta `:live`: sem o sufixo, a leitura seria de `$LATEST`, que não usa SnapStart.
+
+```bash
+aws lambda get-function-configuration --function-name feedback-registrar-avaliacao-dev:live --region sa-east-1 --query "{Version:Version,State:State,OptimizationStatus:SnapStart.OptimizationStatus}"
+```
+
+Resultado esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`. `Version` traz o número da versão publicada para a qual o alias aponta.
+
+```json
+{
+    "Version": "<NUMERO_DA_VERSAO>",
+    "State": "Active",
+    "OptimizationStatus": "On"
+}
+```
+
+Para `hml` e `prod`, troque o sufixo no nome da função. Acrescente `--profile tc4-admin` se a sua credencial padrão não for dessa conta. Em Java, o snapshot é apagado depois de 14 dias sem invocação, e a chamada seguinte falha com `SnapStartNotReadyException` até a versão voltar a `Active`.
 
 ## Bootstrap da conta AWS
 
