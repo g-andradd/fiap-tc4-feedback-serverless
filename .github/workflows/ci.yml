@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release/**
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  # O nome do job é o check obrigatório da proteção de branch. Renomear aqui exige ajustar a proteção.
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: corretto
+          java-version: "25"
+          cache: maven
+
+      - name: Build e testes
+        run: mvn -B verify
+
+      - uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+
+      - name: Validar template da aplicação
+        run: sam validate --lint --region sa-east-1
+
+      - name: Validar template de bootstrap
+        run: sam validate --lint --region sa-east-1 -t infra/bootstrap/github-oidc.yaml

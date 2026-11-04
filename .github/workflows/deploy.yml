@@ -1,0 +1,91 @@
+name: Deploy
+
+# Só estas branches disparam. feature/* e hotfix/* não estão no filtro: hotfix entra por PR em main.
+on:
+  push:
+    branches:
+      - develop
+      - release/**
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  resolver-ambiente:
+    name: resolver-ambiente
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      ambiente: ${{ steps.mapa.outputs.ambiente }}
+    steps:
+      - id: mapa
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          case "$REF" in
+            refs/heads/develop)   ambiente=dev ;;
+            refs/heads/release/*) ambiente=hml ;;
+            refs/heads/main)      ambiente=prod ;;
+            *)
+              echo "::error::Branch sem ambiente mapeado"
+              exit 1
+              ;;
+          esac
+          echo "ambiente=$ambiente" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: deploy
+    needs: resolver-ambiente
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ${{ needs.resolver-ambiente.outputs.ambiente }}
+    concurrency:
+      group: deploy-${{ needs.resolver-ambiente.outputs.ambiente }}
+      cancel-in-progress: false
+    env:
+      AMBIENTE: ${{ needs.resolver-ambiente.outputs.ambiente }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: corretto
+          java-version: "25"
+          cache: maven
+
+      - uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: deploy-${{ github.run_id }}
+          aws-region: sa-east-1
+
+      # Inclui os testes. O sam build copia só o CodeUri para uma pasta temporária e resolve
+      # o parent e o dominio pelo ~/.m2, então o install precisa vir antes dele.
+      - name: Testes e install no repositório Maven local
+        run: mvn -B install
+
+      - name: Build
+        run: sam build --config-env "$AMBIENTE"
+
+      # O e-mail vem do secret do ambiente, por variável, para ficar mascarado nos logs.
+      # --parameter-overrides substitui o do samconfig.toml, por isso Stage vai junto.
+      - name: Deploy
+        env:
+          EMAIL_ADMIN: ${{ secrets.EMAIL_ADMIN }}
+        run: |
+          if [ -z "$EMAIL_ADMIN" ]; then
+            echo "::error::Secret EMAIL_ADMIN ausente no ambiente do GitHub"
+            exit 1
+          fi
+          sam deploy \
+            --config-env "$AMBIENTE" \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides "Stage=$AMBIENTE EmailAdmin=$EMAIL_ADMIN"
