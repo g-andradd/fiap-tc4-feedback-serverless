@@ -196,6 +196,80 @@ Resultado esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`
 
 Para `hml` e `prod`, troque o sufixo no nome da função. Acrescente `--profile tc4-admin` se a sua credencial padrão não for dessa conta. Em Java, o snapshot é apagado depois de 14 dias sem invocação, e a chamada seguinte falha com `SnapStartNotReadyException` até a versão voltar a `Active`.
 
+## Reprocessamento do aviso crítico e limpeza do bucket
+
+Esta seção descreve o que está declarado no `template.yaml` e no código de `notificar-critica`. A função ainda não foi implantada, então nada daqui foi executado na AWS. O que é atribuído ao Lambda e ao CloudFormation vem da documentação da AWS citada em `openspec/changes/add-notificacao-critica/design.md`.
+
+### Política de reprocessamento
+
+Configuração do gatilho `AvaliacaoCriada`, no Stream da tabela de avaliações:
+
+| Parâmetro | Valor | Efeito esperado |
+|---|---|---|
+| `FunctionResponseTypes` | `ReportBatchItemFailures` | A função informa em qual registro o lote falhou |
+| `BatchSize` | 10 | Até 10 registros por invocação |
+| `BisectBatchOnFunctionError` | `true` | Em erro não tratado, como timeout, o Lambda divide o lote. Dividir não consome tentativas |
+| `MaximumRetryAttempts` | 5 | Limite de novas tentativas. O padrão da AWS é infinito |
+| `MaximumRecordAgeInSeconds` | 3600 | Registro com mais de 1 hora não é mais tentado. O padrão da AWS é ir até o registro expirar no Stream, em 24 horas |
+| `StartingPosition` | `TRIM_HORIZON` | O mapeamento começa pelo registro mais antigo disponível no Stream |
+| `DestinationConfig.OnFailure` | Bucket de relatórios | Recebe o que foi descartado, como explicado adiante |
+
+Na primeira falha ao publicar no SNS, a função registra o erro em nível ERROR, para de percorrer o lote e devolve o número de sequência daquele registro em `batchItemFailures`. O Lambda retoma a partir dele. Cada chamada de publicação tem limite de 5 segundos, dentro do `Timeout` de 30 segundos da função.
+
+A falha não altera a avaliação: o item continua na tabela, e a função não tem permissão de escrita nela. A entrega é pelo menos uma vez, sem deduplicação, então o mesmo aviso pode sair mais de uma vez.
+
+A documentação consultada não informa o intervalo entre tentativas em stream. Por isso, não há como garantir quanto tempo de indisponibilidade do SNS a política cobre. O limite conhecido é a menor das condições: 5 tentativas ou 1 hora.
+
+### Lotes descartados
+
+Quando as tentativas ou a idade máxima se esgotam, o Lambda descarta o registro, grava no destino de falha e segue com o shard. O aviso daquela avaliação não sai sozinho.
+
+O destino declarado é o bucket de relatórios, cujo nome está no output `BucketRelatoriosNome` da stack. A role da função só pode gravar objetos no prefixo `aws/lambda/`, e a documentação da AWS indica este caminho:
+
+```
+aws/lambda/<ESM-UUID>/<shardID>/AAAA/MM/DD/...
+```
+
+Segundo a mesma documentação, o objeto traz o evento em `payload`, o que inclui a descrição escrita pelo aluno. O template não define regra de expiração, então o objeto fica até alguém apagá-lo. Como o Stream retém os registros por 24 horas, esse objeto é a fonte para refazer um aviso perdido. Isso é manual: não há comando nem função para reenviar.
+
+Não vão para esse prefixo:
+
+- Registros que o filtro do gatilho não aceita.
+- Registros que a função ignora por não serem criação de item crítico.
+- Item crítico sem campo obrigatório. A função descarta na hora, registra em ERROR o `eventID` e o nome dos campos, soma a métrica `ItemInvalido` e conta o registro como processado.
+
+**Primeiro deploy.** Com `TRIM_HORIZON`, avaliações críticas gravadas até 1 hora antes da criação do mapeamento podem gerar aviso. As mais antigas ainda retidas no Stream podem ir direto para o destino de falha.
+
+**S3 como destino ainda depende do deploy.** A documentação da AWS se contradiz: o guia de erros do Lambda e a referência do CloudFormation aceitam S3 para DynamoDB, enquanto a tabela de parâmetros do Lambda e a propriedade do SAM citam só SQS e SNS. Se o deploy recusar S3, vale o plano B da decisão D4 do design: o destino passa a ser o tópico de administradores e a permissão de S3 sai da role. Nesse caso, nada é gravado em `aws/lambda/`, o destino recebe só metadados, sem o conteúdo do evento, e esta seção precisa ser corrigida.
+
+### Esvaziar o bucket antes de `sam delete`
+
+O CloudFormation só exclui bucket vazio, então um objeto no bucket impede a remoção dele junto com a stack. Rode os comandos abaixo com o perfil administrativo, porque as roles de deploy não têm permissão para excluir a stack. Eles ainda não foram executados.
+
+Para `hml` e `prod`, troque o valor de `STACK`:
+
+```bash
+STACK=feedback-dev
+
+BUCKET=$(aws cloudformation describe-stacks \
+  --stack-name "$STACK" \
+  --query "Stacks[0].Outputs[?OutputKey=='BucketRelatoriosNome'].OutputValue" \
+  --output text \
+  --region sa-east-1 \
+  --profile tc4-admin)
+
+aws s3 ls "s3://$BUCKET/" --recursive --region sa-east-1 --profile tc4-admin
+
+aws s3 rm "s3://$BUCKET/" --recursive --region sa-east-1 --profile tc4-admin
+
+sam delete --stack-name "$STACK" --region sa-east-1 --profile tc4-admin
+```
+
+- O `aws s3 ls` mostra o que vai ser apagado. Salve antes o que precisar guardar, porque o `aws s3 rm` remove todos os objetos do bucket, não só os de `aws/lambda/`. O template não ativa versionamento no bucket.
+- O `sam delete` remove a stack inteira, inclusive a tabela de avaliações, que tem `DeletionPolicy: Delete`. Sem `--no-prompts`, ele pede confirmação. No Git Bash do Windows, o comando pode precisar ser `sam.cmd delete`.
+- Se o bucket receber um objeto novo entre o `aws s3 rm` e o `sam delete`, a exclusão falha. Nesse caso, esvazie de novo e repita.
+- Não apague o bucket por fora da stack. A documentação da AWS alerta que excluir o bucket sem remover o destino de falha permite que outra conta recrie o nome e receba os registros.
+
 ## Bootstrap da conta AWS
 
 O template `infra/bootstrap/github-oidc.yaml` cria o provedor OIDC do GitHub e uma role de deploy por ambiente. Ele é aplicado uma vez, com credencial administrativa, e fica fora do pipeline de propósito: assim o pipeline não consegue alterar as próprias permissões.
