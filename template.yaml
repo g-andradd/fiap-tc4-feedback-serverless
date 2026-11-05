@@ -167,6 +167,74 @@ Resources:
             Path: /avaliacao
             PayloadFormatVersion: "2.0"
 
+  LogNotificarCritica:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/feedback-notificar-critica-${Stage}
+      RetentionInDays: 14
+
+  NotificarCritica:
+    Type: AWS::Serverless::Function
+    DependsOn: LogNotificarCritica
+    Properties:
+      FunctionName: !Sub feedback-notificar-critica-${Stage}
+      CodeUri: functions/notificar-critica
+      Handler: br.com.fiap.feedback.notificacao.NotificarCriticaHandler::handleRequest
+      AutoPublishAliasAllProperties: true
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: notificar-critica
+          TOPICO_ADMINS_ARN: !Ref TopicoAdmins
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: PublicarNoTopico
+              Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref TopicoAdmins
+            - Sid: UsarChaveDoTopico
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey*
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub sns.${AWS::Region}.amazonaws.com
+            - Sid: GuardarLoteDescartado
+              Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub ${BucketRelatorios.Arn}/aws/lambda/*
+              Condition:
+                StringEquals:
+                  s3:ResourceAccount: !Ref AWS::AccountId
+            - Sid: ListarBucketDoDestino
+              Effect: Allow
+              Action: s3:ListBucket
+              Resource: !GetAtt BucketRelatorios.Arn
+              Condition:
+                StringEquals:
+                  s3:ResourceAccount: !Ref AWS::AccountId
+      Events:
+        AvaliacaoCriada:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt TabelaAvaliacoes.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+            BisectBatchOnFunctionError: true
+            MaximumRetryAttempts: 5
+            MaximumRecordAgeInSeconds: 3600
+            # Sem Type de propósito: o SAM geraria uma política própria, e a que vale é a de cima.
+            DestinationConfig:
+              OnFailure:
+                Destination: !GetAtt BucketRelatorios.Arn
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"eventName":["INSERT"],"dynamodb":{"NewImage":{"urgencia":{"S":["CRITICA"]}}}}'
+
 Outputs:
   TabelaAvaliacoesNome:
     Description: Nome da tabela de avaliações
@@ -198,3 +266,9 @@ Outputs:
   RegistrarAvaliacaoAliasArn:
     Description: ARN do alias live da função de registro
     Value: !Ref RegistrarAvaliacao.Alias
+  NotificarCriticaNome:
+    Description: Nome da função de notificação
+    Value: !Ref NotificarCritica
+  NotificarCriticaAliasArn:
+    Description: ARN do alias live da função de notificação
+    Value: !Ref NotificarCritica.Alias
