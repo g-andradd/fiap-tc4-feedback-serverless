@@ -5,7 +5,7 @@ Legenda de responsável: **[IA]** feito pelos agentes, **[Gabriel]** ação manu
 Depende de `add-fundacao-projeto` integrado e com o bootstrap aplicado. Tarefas 2 e 3 podem rodar em paralelo com a 4 depois da 1, porque não editam os mesmos arquivos.
 
 ## 1. Preparação
-- [x] 1.1 [IA] dev-java: limpar o `pom.xml` parent conforme D6: remover `aspectjrt`, `aspectj-maven-plugin`, as propriedades `aspectj.version` e `aspectj-maven-plugin.version` e os comentários sobre anotações; acrescentar em `dependencyManagement` `powertools-logging` e `jackson-databind`, esta na mesma versão que o Powertools traz
+- [x] 1.1 [IA] dev-java: limpar o `pom.xml` parent conforme D6: remover `aspectj-maven-plugin`, a propriedade `aspectj-maven-plugin.version` e os comentários sobre anotações; manter `aspectjrt` e `aspectj.version` só para o escopo `runtime` (corrigido na seção 8); acrescentar em `dependencyManagement` `powertools-logging` e `jackson-databind`, esta na mesma versão que o Powertools traz
 - [x] 1.2 [Gabriel] Apontar o JAVA_HOME para um JDK 25 local
 - [x] 1.3 [IA] dev-java: validar com `mvn -B verify`
 
@@ -30,15 +30,15 @@ Depende de `add-fundacao-projeto` integrado e com o bootstrap aplicado. Tarefas 
 - [x] 4.1 [IA] devops: substituir `Globals` no `template.yaml` pelo trecho do `design.md`
 - [x] 4.2 [IA] devops: acrescentar `ApiAvaliacoes`, `LogRegistrarAvaliacao`, `RegistrarAvaliacao` e os outputs, conforme o `design.md`
 - [x] 4.3 [IA] devops: validar com `sam validate --lint`
-- [x] 4.4 [IA] devops: validar com `mvn -B install` seguido de `sam build`, usando JDK 25, e conferir que `lib/` traz o jar do `dominio` e nenhum `aspectjrt`
+- [x] 4.4 [IA] devops: validar com `mvn -B install` seguido de `sam build`, usando JDK 25, e conferir que `lib/` traz o jar do `dominio` e o `aspectjrt`, e nenhum `aspectjtools` nem `aspectjweaver` (corrigido na seção 8)
 
 ## 5. Validação local
 - [x] 5.1 [IA] qa: conferir a cobertura de cada `#### Scenario` da spec nos testes e relatar os que dependem da stack implantada
 - [x] 5.2 [IA] qa: rodar `mvn -B verify` e `sam validate --lint`, e confirmar que o domínio não importa SDK da AWS nem Jackson
 
 ## 6. Deploy em dev e conferência
-- [ ] 6.1 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-registro-avaliacao`, push, PR para `develop`) e conferir o CI verde
-- [ ] 6.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`
+- [x] 6.1 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-registro-avaliacao`, push, PR para `develop`) e conferir o CI verde
+- [ ] 6.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`. O primeiro deploy falhou, ver a seção 8
 - [ ] 6.3 [IA] qa: conferir o SnapStart na versão publicada: `aws lambda get-function-configuration --function-name feedback-registrar-avaliacao-dev:live --region sa-east-1 --query "{Version:Version,State:State,OptimizationStatus:SnapStart.OptimizationStatus}"`. Esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`. Registrar o resultado como a prova prática prevista em fundação D7
 - [ ] 6.4 [IA] qa: confirmar que a integração da API aponta para o alias `live`, e não para `$LATEST`
 - [ ] 6.5 [IA] qa: confirmar a tag `ambiente=dev` na API com `aws apigatewayv2 get-api --api-id <id> --region sa-east-1 --query Tags` (D1)
@@ -49,3 +49,11 @@ Depende de `add-fundacao-projeto` integrado e com o bootstrap aplicado. Tarefas 
 ## 7. Documentação
 - [x] 7.1 [IA] documentador: registrar no README o endpoint, os exemplos de requisição e resposta, a regra de urgência e a coleção Postman
 - [x] 7.2 [IA] documentador: registrar no README como conferir o SnapStart no alias
+
+## 8. Correção do incidente de SnapStart
+- [x] 8.1 [IA] dev-java: colocar `aspectjrt` em `dependencyManagement` e em escopo `runtime` no módulo, sem plugin e sem anotações (D6)
+- [x] 8.2 [IA] dev-java: criar `PrimingSnapStartTest`, executando `ClassPreLoader.preloadClasses()` e os hooks de `TracingUtils` e `MetricsFactory`, com a prova de que ele falha sem o jar
+- [x] 8.3 [IA] dev-java: validar com `mvn -B clean verify` e `sam build`, e conferir `aspectjrt` em `lib/`
+- [x] 8.4 [IA] registrar o incidente em `docs/incidentes/2026-11-04-snapstart-aspectjrt.md`
+- [ ] 8.5 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-registro-avaliacao-fix-snapstart`, push, PR para `develop`), fazer o merge e conferir o deploy verde, que fecha a 6.2
+- [ ] 8.6 [Gabriel] Rever o desvio na primeira release do Powertools que traga o commit `f628502`

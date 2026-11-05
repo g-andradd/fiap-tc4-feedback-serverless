@@ -227,6 +227,8 @@ Conferidos no texto, e iguais aos trechos do `design.md`. O recurso gerado na co
 
 `dependency:tree` com escopo `runtime` de `registrar-avaliacao`: sem `aspectjrt`, `apache-client`, `apache5-client` e `netty-nio-client`. `url-connection-client` presente. `httpclient` 4.5.14 vem do X-Ray, como a D12 prevê.
 
+Atualização de 04/11/2026: esta validação local não executou os hooks de SnapStart, e o primeiro deploy falhou por isso. `aspectjrt` passou a entrar em escopo `runtime`, por decisão do Gabriel (D6 do `design.md` e `docs/incidentes/2026-11-04-snapstart-aspectjrt.md`). A nova conferência fica na tarefa 6.8.
+
 ## Testes acrescentados
 
 - `LogsRegistrarAvaliacaoTest.motivoNaoTemDadoDeEntrada`: novo, com 11 execuções, uma por caminho de `LeitorCorpo` em texto e em Base64. Confere status 400, nível INFO, ausência do marcador e de `987654`, `motivo` exato e ausência do campo `error`.
