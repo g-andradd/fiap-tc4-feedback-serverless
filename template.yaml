@@ -204,7 +204,9 @@ Resources:
             - Sid: GuardarLoteDescartado
               Effect: Allow
               Action: s3:PutObject
-              Resource: !Sub ${BucketRelatorios.Arn}/aws/lambda/*
+              # O Lambda valida PutObject no bucket inteiro ao criar o mapeamento
+              # e recusa o prefixo aws/lambda/*.
+              Resource: !Sub ${BucketRelatorios.Arn}/*
               Condition:
                 StringEquals:
                   s3:ResourceAccount: !Ref AWS::AccountId
