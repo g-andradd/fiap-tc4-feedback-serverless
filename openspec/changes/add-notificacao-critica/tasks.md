@@ -10,17 +10,18 @@ Depende de `add-registro-avaliacao` integrado: usa o `Globals`, o contrato do it
 - [ ] 1.3 [IA] dev-java: Javadoc e `mvn -B verify`
 
 ## 2. Função (`functions/notificar-critica`)
-- [ ] 2.1 [IA] dev-java: declarar no `pom.xml` do módulo as dependências de Lambda, Powertools, `url-connection-client` e `sns`, com as exclusões de `apache-client`, `apache5-client` e `netty-nio-client`; conferir com `mvn dependency:tree`
+- [ ] 2.1 [IA] dev-java: declarar no `pom.xml` do módulo as dependências de Lambda, Powertools, `aspectjrt` em escopo `runtime` (`add-registro-avaliacao` D6), `url-connection-client` e `sns`, com as exclusões de `apache-client`, `apache5-client` e `netty-nio-client`; conferir com `mvn dependency:tree`
 - [ ] 2.2 [IA] dev-java: criar `log4j2.xml` igual ao de `registrar-avaliacao`
 - [ ] 2.3 [IA] dev-java: criar `NotificarCriticaHandler` conforme D2, D3, D5 e D7: laço em ordem, retorno imediato na primeira falha com o número de sequência, descarte de item inválido, `apiCallTimeout` de 5 segundos, cliente `static final` com cadeia padrão de credenciais
 - [ ] 2.4 [IA] dev-java: testes do handler com cliente simulado para lote de três críticas com três publicações; falha no segundo registro com retorno do número de sequência dele e sem publicar o terceiro; `MODIFY` e `REMOVE` sem publicação; urgência diferente de `CRITICA` sem publicação; item sem `descricao` descartado sem falhar o lote; evento repetido com duas publicações; `batchItemFailures` vazio no sucesso
 - [ ] 2.5 [IA] dev-java: teste com appender em memória: marcador da descrição não aparece em nenhum nível, nos casos de sucesso, falha ao publicar e item inválido; falha ao publicar aparece em ERROR
-- [ ] 2.6 [IA] dev-java: validar com `mvn -B verify`
+- [ ] 2.6 [IA] dev-java: criar `PrimingSnapStartTest`, como em `add-registro-avaliacao`: executa `ClassPreLoader.preloadClasses()` e os hooks de `TracingUtils` e `MetricsFactory`, com a prova de que ele falha sem o `aspectjrt`
+- [ ] 2.7 [IA] dev-java: validar com `mvn -B verify`
 
 ## 3. Infraestrutura
 - [ ] 3.1 [IA] devops: acrescentar `LogNotificarCritica`, `NotificarCritica` e os outputs ao `template.yaml`, conforme o `design.md`, sem alterar `Globals`
 - [ ] 3.2 [IA] devops: validar com `sam validate --lint`
-- [ ] 3.3 [IA] devops: validar com `mvn -B install` seguido de `sam build`, usando JDK 25
+- [ ] 3.3 [IA] devops: validar com `mvn -B install` seguido de `sam build`, usando JDK 25, e conferir `aspectjrt` em `lib/`, sem `aspectjtools` nem `aspectjweaver`
 
 ## 4. Validação local
 - [ ] 4.1 [IA] qa: conferir a cobertura de cada `#### Scenario` da spec nos testes e relatar os que dependem da stack implantada

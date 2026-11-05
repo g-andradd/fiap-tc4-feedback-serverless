@@ -101,8 +101,8 @@ Todas com `content-type: application/json`:
 
 Alternativa descartada: mensagem por campo, com o motivo. A spec exige só o nome do campo, e o motivo aumentaria o que precisa ser testado sem pedido.
 
-### D6. Powertools 2.11.0 com API funcional, sem AspectJ
-**Confirmado: a versão fixada no `pom.xml` serve, não é preciso subir.** A 2.11.0 é a última: consta como `latest` no [Maven Central](https://repo1.maven.org/maven2/software/amazon/lambda/powertools-tracing/maven-metadata.xml) e como Latest nas [releases](https://github.com/aws-powertools/powertools-lambda-java/releases). As mesmas releases registram suporte a Java 25 e abordagem funcional para todos os utilitários na v2.7.0.
+### D6. Powertools 2.11.0 com API funcional, sem anotações e sem weaving
+**Confirmado: a versão fixada no `pom.xml` serve, desde que com o `aspectjrt` em runtime (ver abaixo), e não é preciso subir.** A 2.11.0 é a última: consta como `latest` no [Maven Central](https://repo1.maven.org/maven2/software/amazon/lambda/powertools-tracing/maven-metadata.xml) e como Latest nas [releases](https://github.com/aws-powertools/powertools-lambda-java/releases). As mesmas releases registram suporte a Java 25 e abordagem funcional para todos os utilitários na v2.7.0.
 
 | Utilitário | API usada | Documentação |
 |---|---|---|
@@ -110,7 +110,18 @@ Alternativa descartada: mensagem por campo, com o motivo. A spec exige só o nom
 | Tracing | `TracingUtils.withSubsegment(...)`, `putAnnotation` e `TracingUtils.init()` | [Tracing](https://docs.aws.amazon.com/powertools/java/latest/core/tracing/) |
 | Métricas | `MetricsBuilder.builder()...build()`, `captureColdStartMetric`, `addMetric` e `flush` | [Metrics](https://docs.aws.amazon.com/powertools/java/latest/core/metrics/): "eliminates the AspectJ runtime dependency" |
 
-Verificado localmente: um módulo com as três APIs, sem `aspectjrt` no classpath, compila com JDK 25 e carrega `PowertoolsLogging`, `TracingUtils` e `MetricsBuilder`.
+Verificado localmente: um módulo com as três APIs, sem `aspectjrt` no classpath, compila com JDK 25 e carrega `PowertoolsLogging`, `TracingUtils` e `MetricsBuilder`. Essa verificação não executou os hooks de SnapStart, e foi aí que a premissa falhou no primeiro deploy.
+
+**Desvio temporário: `aspectjrt` em escopo `runtime`, aprovado pelo Gabriel em 04/11/2026.** Sem plugin, sem weaving e sem anotações. O código não importa nada de `org.aspectj`.
+
+- **Motivo:** antes do snapshot, os hooks de `TracingUtils` e `MetricsFactory` chamam `ClassPreLoader.preloadClasses()`, que inicializa as classes de `classesloaded.txt`. A lista inclui `LambdaTracingAspect` e `LambdaMetricsAspect`, que dependem de `org.aspectj.lang.NoAspectBoundException`. Na 2.11.0, `loadClassIfFound` só trata `ClassNotFoundException`, e o `NoClassDefFoundError` derruba a publicação da versão. Ver `docs/incidentes/2026-11-04-snapstart-aspectjrt.md`.
+- **Contradição com a documentação:** a página de métricas diz que a API funcional "eliminates the AspectJ runtime dependency", o que não vale com SnapStart nesta versão.
+- **Quando rever:** na primeira release do Powertools que traga o commit [`f628502`](https://github.com/aws-powertools/powertools-lambda-java/pull/2684), que passa a tratar `LinkageError`. Ele está na `main`, depois da tag `v2.11.0`, ainda sem release. O jar só sai se `PrimingSnapStartTest` continuar passando sem ele. Nessa versão, passar só prova que nada mais escapa do priming, porque o `LinkageError` passa a ser ignorado. Por isso a remoção também exige um deploy com `State: Active` e `OptimizationStatus: On` (tarefa 6.3).
+- **Prevenção:** `PrimingSnapStartTest` executa o preload e os dois hooks, e o CI passa a pegar o erro antes do deploy. Cada módulo de função tem o seu.
+
+Alternativas descartadas:
+- Remover tracing e métricas do Powertools, usando X-Ray e EMF direto. Contraria o `project.md` e custa mais código.
+- Desligar o SnapStart. Contraria o `project.md`.
 
 O que se perde em relação às anotações, segundo as mesmas páginas:
 - `logError` e `flushBufferOnUncaughtError` só existem com `@Logging`. O handler captura a exceção e registra o erro por conta própria.
@@ -120,7 +131,7 @@ O que se perde em relação às anotações, segundo as mesmas páginas:
 
 **A métrica `ColdStart` não serve com SnapStart.** O Powertools só considera cold start quando `AWS_LAMBDA_INITIALIZATION_TYPE` é `on-demand`. Verificado localmente, com a variável definida à mão: com `snap-start`, `captureColdStartMetric` não emitiu métrica e `cold_start` ficou `false` nos logs; com `on-demand`, emitiu (observação B do `qa.md`). A chamada fica no handler, mas não mede o caso deste template. Por decisão do Gabriel em 04/11/2026, o dashboard de `add-observabilidade-seguranca` usa a duração de restauração do SnapStart no lugar do cold start. A [página de monitoramento do SnapStart](https://docs.aws.amazon.com/lambda/latest/dg/snapstart-monitoring.html) (04/11/2026) mostra esse valor no campo `Restore Duration` da linha `REPORT` dos logs e no subsegmento `Restore` do X-Ray, e não cita métrica do CloudWatch para ele, então o dashboard precisa extrair o valor dos logs.
 
-**Limpeza do `pom.xml`, tarefa 1.1:** sai `aspectjrt`, `aspectj-maven-plugin`, as propriedades `aspectj.version` e `aspectj-maven-plugin.version` e os comentários sobre anotações. A documentação de logging lista `powertools-logging` junto de `powertools-logging-log4j`, então os dois entram em `dependencyManagement`.
+**Limpeza do `pom.xml`, tarefa 1.1:** sai `aspectj-maven-plugin`, a propriedade `aspectj-maven-plugin.version` e os comentários sobre anotações. `aspectjrt` e `aspectj.version` ficam, só para o escopo `runtime` descrito acima. A documentação de logging lista `powertools-logging` junto de `powertools-logging-log4j`, então os dois entram em `dependencyManagement`.
 
 Alternativa descartada: anotações com `aspectj-maven-plugin`. Mais um passo de build, sensível à versão do Java, por um ganho que o escopo não usa. Decisão pedida pelo Gabriel.
 
@@ -138,6 +149,7 @@ Valem para as três funções. Fontes: [SnapStart](https://docs.aws.amazon.com/l
 | Cache de DNS | Evitar cache de DNS da JVM. Definir `networkaddress.cache.ttl` como 0 antes de criar o logger | Primeira linha do bloco estático do handler |
 | Recursos incompatíveis | Sem provisioned concurrency, EFS, S3 Files e armazenamento efêmero acima de 512 MB | Nenhum é usado |
 | Preço | Sem custo adicional em runtimes Java gerenciados | Cabe na premissa de custo |
+| Priming do Powertools | Hooks registrados por `TracingUtils` e `MetricsFactory` rodam antes do snapshot. Exceção ou erro neles faz a publicação da versão falhar | `aspectjrt` em runtime (D6) e `PrimingSnapStartTest` em cada função |
 | Inatividade | Em Java, snapshot é apagado depois de 14 dias sem invocação, e a chamada seguinte falha com `SnapStartNotReadyException` até voltar a `Active` | Invocar as funções antes de gravar o vídeo (fundação, Risks) |
 
 A página de tracing pede `TracingUtils.init()` na inicialização para o priming rodar. As páginas de logging e de métricas não citam SnapStart.
@@ -347,4 +359,6 @@ Os três trechos deste change, somados aos dos outros dois sobre o `template.yam
 
 ## Desvios do project.md
 
-Nenhum. D2 refina o formato de `criadoEm` e D9 é mais estrita que a regra de logs, ambas sem contrariar o `project.md`.
+Do `project.md`, nenhum. D2 refina o formato de `criadoEm` e D9 é mais estrita que a regra de logs, ambas sem contrariar o `project.md`.
+
+Da decisão original "sem AspectJ": `aspectjrt` em escopo `runtime`, desvio temporário aprovado pelo Gabriel em 04/11/2026 (D6). Continua sem anotações, sem plugin e sem weaving.
