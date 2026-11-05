@@ -196,6 +196,245 @@ Resultado esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`
 
 Para `hml` e `prod`, troque o sufixo no nome da função. Acrescente `--profile tc4-admin` se a sua credencial padrão não for dessa conta. Em Java, o snapshot é apagado depois de 14 dias sem invocação, e a chamada seguinte falha com `SnapStartNotReadyException` até a versão voltar a `Active`.
 
+## Reprocessamento do aviso crítico e limpeza do bucket
+
+Esta seção descreve o que está declarado no `template.yaml` e no código de `notificar-critica`. A conferência na AWS ainda não foi feita. O primeiro deploy em dev só confirmou o que diz o parágrafo **Permissão de S3 na role**, mais abaixo. O que é atribuído ao Lambda e ao CloudFormation vem da documentação da AWS citada em `openspec/changes/add-notificacao-critica/design.md`.
+
+### Política de reprocessamento
+
+Configuração do gatilho `AvaliacaoCriada`, no Stream da tabela de avaliações:
+
+| Parâmetro | Valor | Efeito esperado |
+|---|---|---|
+| `FunctionResponseTypes` | `ReportBatchItemFailures` | A função informa em qual registro o lote falhou |
+| `BatchSize` | 10 | Até 10 registros por invocação |
+| `BisectBatchOnFunctionError` | `true` | Em erro não tratado, como timeout, o Lambda divide o lote. Dividir não consome tentativas |
+| `MaximumRetryAttempts` | 5 | Limite de novas tentativas. O padrão da AWS é infinito |
+| `MaximumRecordAgeInSeconds` | 3600 | Registro com mais de 1 hora não é mais tentado. O padrão da AWS é ir até o registro expirar no Stream, em 24 horas |
+| `StartingPosition` | `TRIM_HORIZON` | O mapeamento começa pelo registro mais antigo disponível no Stream |
+| `DestinationConfig.OnFailure` | Bucket de relatórios | Recebe o que foi descartado, como explicado adiante |
+
+Na primeira falha ao publicar no SNS, a função registra o erro em nível ERROR, para de percorrer o lote e devolve o número de sequência daquele registro em `batchItemFailures`. O Lambda retoma a partir dele. Cada chamada de publicação tem limite de 5 segundos, dentro do `Timeout` de 30 segundos da função.
+
+A falha não altera a avaliação: o item continua na tabela, e a função não tem permissão de escrita nela. A entrega é pelo menos uma vez, sem deduplicação, então o mesmo aviso pode sair mais de uma vez.
+
+A documentação consultada não informa o intervalo entre tentativas em stream. Por isso, não há como garantir quanto tempo de indisponibilidade do SNS a política cobre. O limite conhecido é a menor das condições: 5 tentativas ou 1 hora.
+
+### Lotes descartados
+
+Quando as tentativas ou a idade máxima se esgotam, o Lambda descarta o registro, grava no destino de falha e segue com o shard. O aviso daquela avaliação não sai sozinho.
+
+O destino declarado é o bucket de relatórios, cujo nome está no output `BucketRelatoriosNome` da stack. O Lambda grava os registros descartados no prefixo `aws/lambda/`, que é definido pelo serviço, e a documentação da AWS indica este caminho:
+
+```
+aws/lambda/<ESM-UUID>/<shardID>/AAAA/MM/DD/...
+```
+
+Segundo a mesma documentação, o objeto traz o evento em `payload`, o que inclui a descrição escrita pelo aluno. O template não define regra de expiração, então o objeto fica até alguém apagá-lo. Como o Stream retém os registros por 24 horas, esse objeto é a fonte para refazer um aviso perdido. Isso é manual: não há comando nem função para reenviar.
+
+Não vão para esse prefixo:
+
+- Registros que o filtro do gatilho não aceita.
+- Registros que a função ignora por não serem criação de item crítico.
+- Item crítico sem campo obrigatório. A função descarta na hora, registra em ERROR o `eventID` e o nome dos campos, soma a métrica `ItemInvalido` e conta o registro como processado.
+
+**Primeiro deploy.** Com `TRIM_HORIZON`, avaliações críticas gravadas até 1 hora antes da criação do mapeamento podem gerar aviso. As mais antigas ainda retidas no Stream podem ir direto para o destino de falha.
+
+**Permissão de S3 na role.** O deploy em dev confirmou que o Lambda aceita S3 como destino de falha para o Stream do DynamoDB. Ao criar o mapeamento, porém, ele exige `s3:PutObject` no bucket inteiro e recusa uma permissão limitada a `aws/lambda/*`. Por isso a role tem `s3:PutObject` em `<bucket>/*`, sempre com a condição `s3:ResourceAccount` apontando para a própria conta. Os objetos continuam caindo em `aws/lambda/`, porque quem escolhe o caminho é o Lambda, não a role.
+
+### Esvaziar o bucket antes de `sam delete`
+
+O CloudFormation só exclui bucket vazio, então um objeto no bucket impede a remoção dele junto com a stack. Rode os comandos abaixo com o perfil administrativo, porque as roles de deploy não têm permissão para excluir a stack. Eles ainda não foram executados.
+
+Para `hml` e `prod`, troque o valor de `STACK`:
+
+```bash
+STACK=feedback-dev
+
+BUCKET=$(aws cloudformation describe-stacks \
+  --stack-name "$STACK" \
+  --query "Stacks[0].Outputs[?OutputKey=='BucketRelatoriosNome'].OutputValue" \
+  --output text \
+  --region sa-east-1 \
+  --profile tc4-admin)
+
+aws s3 ls "s3://$BUCKET/" --recursive --region sa-east-1 --profile tc4-admin
+
+aws s3 rm "s3://$BUCKET/" --recursive --region sa-east-1 --profile tc4-admin
+
+sam delete --stack-name "$STACK" --region sa-east-1 --profile tc4-admin
+```
+
+- O `aws s3 ls` mostra o que vai ser apagado. Salve antes o que precisar guardar, porque o `aws s3 rm` remove todos os objetos do bucket, não só os de `aws/lambda/`. O template não ativa versionamento no bucket.
+- O `sam delete` remove a stack inteira, inclusive a tabela de avaliações, que tem `DeletionPolicy: Delete`. Sem `--no-prompts`, ele pede confirmação. No Git Bash do Windows, o comando pode precisar ser `sam.cmd delete`.
+- Se o bucket receber um objeto novo entre o `aws s3 rm` e o `sam delete`, a exclusão falha. Nesse caso, esvazie de novo e repita.
+- Não apague o bucket por fora da stack. A documentação da AWS alerta que excluir o bucket sem remover o destino de falha permite que outra conta recrie o nome e receba os registros.
+
+## Relatório semanal: acionamento manual e download
+
+Esta seção descreve o que está declarado no `template.yaml` e no código de `gerar-relatorio-semanal` e `functions/dominio`. A função ainda não foi implantada, então nada daqui foi executado na AWS.
+
+O template agenda a geração para toda segunda às 08:00 em America/Sao_Paulo. O comando abaixo gera o relatório em qualquer dia, sem depender do agendamento.
+
+Nos comandos com `aws`, acrescente `--profile tc4-admin` se a sua credencial padrão não for dessa conta. Para `hml` e `prod`, troque o sufixo no nome da função e da stack.
+
+### Acionar pelo alias `live`
+
+```bash
+aws lambda invoke \
+  --function-name feedback-gerar-relatorio-semanal-dev:live \
+  --region sa-east-1 \
+  --cli-binary-format raw-in-base64-out \
+  --cli-read-timeout 150 \
+  --payload '{"dataReferencia":"2026-11-04"}' \
+  resposta.json
+```
+
+- `:live` é obrigatório na prática: sem ele, a chamada vai para `$LATEST`, que não usa SnapStart, e nenhum erro aparece.
+- `--cli-binary-format` permite enviar o payload em texto no AWS CLI v2.
+- `--cli-read-timeout 150` fica acima do `Timeout` de 120 segundos da função, porque o padrão do CLI é 60.
+- Para usar o dia atual como referência, troque o payload por `--payload '{}'`.
+
+Em caso de sucesso, `resposta.json` traz os campos abaixo, em ordem não garantida. O nome do bucket não vem na resposta.
+
+| Campo | Exemplo |
+|---|---|
+| `dataReferencia` | `2026-11-04` |
+| `chave` | `relatorios/2026-11-04.txt` |
+| `quantidadeAvaliacoes` | `3` |
+
+Em caso de falha, a saída do comando traz `FunctionError`, e a mensagem vai para `resposta.json`. As mensagens são fixas:
+
+| Caso | Mensagem |
+|---|---|
+| Data de referência rejeitada | `Data de referência inválida. Informe uma data existente no formato yyyy-MM-dd.` |
+| Falha na leitura, na gravação ou na publicação | `Falha ao gerar o relatório semanal. Consulte os logs da função.` |
+
+Os efeitos seguem a ordem ler, gravar e publicar, e cada passo só roda se o anterior der certo. Falha na leitura, inclusive de um único dia ou de um item inválido, não grava nem avisa. Falha na gravação não avisa. Falha na publicação deixa o relatório guardado, e reexecutar para a mesma data corrige.
+
+### Data de referência
+
+| Valor de `dataReferencia` | Resultado |
+|---|---|
+| Ausente ou `null` | Dia atual em America/Sao_Paulo |
+| Texto `yyyy-MM-dd` com data que existe, no passado ou no futuro | Usa a data informada |
+| Vazio, outro formato (`09/11/2026`, `+12026-01-01`), data inexistente (`2026-02-30`) ou valor que não é texto | Rejeita antes de qualquer leitura, sem gravar e sem avisar. Um relatório já guardado fica como está |
+
+A janela são os 7 dias civis anteriores à referência, em America/Sao_Paulo, com o dia da referência fora:
+
+| Referência | Janela |
+|---|---|
+| `2026-11-09` | `2026-11-02` a `2026-11-08` |
+| `2026-11-04` | `2026-10-28` a `2026-11-03` |
+
+Por isso, uma avaliação enviada hoje só entra se a referência for amanhã.
+
+Cada data de referência tem um único objeto, `relatorios/<dataReferencia>.txt`. Reexecutar para a mesma data substitui o objeto e publica um novo aviso. Datas diferentes geram objetos separados.
+
+### Formato do relatório
+
+Texto puro em UTF-8, com `ContentType: text/plain; charset=utf-8`. Exemplo com notas 2, 6 e 9 e referência `2026-11-09`:
+
+```
+RELATÓRIO SEMANAL DE AVALIAÇÕES
+Ambiente: dev
+Data de referência: 2026-11-09
+Janela: 2026-11-02 a 2026-11-08
+
+Média das notas: 5,67
+
+Quantidade por urgência
+CRITICA: 1
+MEDIA: 1
+BAIXA: 1
+
+Quantidade por dia
+2026-11-02: 0
+2026-11-03: 2
+2026-11-04: 0
+2026-11-05: 1
+2026-11-06: 0
+2026-11-07: 0
+2026-11-08: 0
+
+Avaliações (3)
+
+Data de envio: 2026-11-03 | Urgência: CRITICA
+Descrição: Aula confusa
+
+Data de envio: 2026-11-03 | Urgência: MEDIA
+Descrição: Aula regular
+
+Data de envio: 2026-11-05 | Urgência: BAIXA
+Descrição: Aula ótima
+```
+
+- A média tem duas casas, com vírgula, e o empate arredonda para cima: 5,125 vira `5,13`.
+- A nota individual não aparece. A urgência é a gravada no item, sem recálculo.
+- Os totais trazem sempre os 7 dias e as 3 urgências, mesmo com zero.
+- Na semana vazia, a linha da média é `Média das notas: sem avaliações na janela`, a lista fica `Avaliações (0)` e os totais ficam zerados.
+
+### Formato do aviso
+
+O aviso sai pelo tópico de administradores a cada relatório guardado. Traz os mesmos números, sem descrições nem notas individuais. A mesma execução do exemplo acima gera:
+
+```
+Assunto: Relatório semanal 2026-11-09
+
+Relatório semanal gerado.
+
+Ambiente: dev
+Data de referência: 2026-11-09
+Janela: 2026-11-02 a 2026-11-08
+
+Média das notas: 5,67
+
+Quantidade por urgência
+CRITICA: 1
+MEDIA: 1
+BAIXA: 1
+
+Quantidade por dia
+2026-11-02: 0
+2026-11-03: 2
+2026-11-04: 0
+2026-11-05: 1
+2026-11-06: 0
+2026-11-07: 0
+2026-11-08: 0
+
+Bucket: feedback-relatorios-<ID_DA_CONTA>-dev
+Chave: relatorios/2026-11-09.txt
+Localização: s3://feedback-relatorios-<ID_DA_CONTA>-dev/relatorios/2026-11-09.txt
+
+O bucket é privado. Acesse com uma credencial da conta.
+```
+
+- Na semana vazia, a linha da média é a mesma do relatório, e as urgências e os dias aparecem em zero.
+- Com uma única avaliação na janela, a média é igual à nota dela.
+- O e-mail só chega depois de confirmada a assinatura do tópico.
+- O nome do bucket inclui o ID da conta, então não copie o e-mail para arquivo versionado.
+
+### Baixar com `aws s3 cp`
+
+A resposta da função não traz o bucket. O nome está no output `BucketRelatoriosNome` da stack e no aviso. Troque a chave do exemplo pelo valor de `chave`:
+
+```bash
+BUCKET=$(aws cloudformation describe-stacks \
+  --stack-name feedback-dev \
+  --query "Stacks[0].Outputs[?OutputKey=='BucketRelatoriosNome'].OutputValue" \
+  --output text \
+  --region sa-east-1)
+
+aws s3 cp "s3://$BUCKET/relatorios/2026-11-04.txt" "$HOME/relatorio-2026-11-04.txt" --region sa-east-1
+```
+
+O bucket é privado, então a credencial usada precisa de `s3:GetObject`. A role da função não tem essa permissão. O arquivo traz as descrições escritas pelos alunos e o `.gitignore` não o cobre, então baixe fora do repositório.
+
+### Remover a stack
+
+Os objetos em `relatorios/` também impedem a exclusão do bucket. Siga o passo em [Esvaziar o bucket antes de `sam delete`](#esvaziar-o-bucket-antes-de-sam-delete), e baixe antes os relatórios que quiser guardar.
+
 ## Bootstrap da conta AWS
 
 O template `infra/bootstrap/github-oidc.yaml` cria o provedor OIDC do GitHub e uma role de deploy por ambiente. Ele é aplicado uma vez, com credencial administrativa, e fica fora do pipeline de propósito: assim o pipeline não consegue alterar as próprias permissões.
