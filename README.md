@@ -198,7 +198,7 @@ Para `hml` e `prod`, troque o sufixo no nome da função. Acrescente `--profile 
 
 ## Reprocessamento do aviso crítico e limpeza do bucket
 
-Esta seção descreve o que está declarado no `template.yaml` e no código de `notificar-critica`. A função ainda não foi implantada, então nada daqui foi executado na AWS. O que é atribuído ao Lambda e ao CloudFormation vem da documentação da AWS citada em `openspec/changes/add-notificacao-critica/design.md`.
+Esta seção descreve o que está declarado no `template.yaml` e no código de `notificar-critica`. A conferência na AWS ainda não foi feita. O primeiro deploy em dev só confirmou o que diz o parágrafo **Permissão de S3 na role**, mais abaixo. O que é atribuído ao Lambda e ao CloudFormation vem da documentação da AWS citada em `openspec/changes/add-notificacao-critica/design.md`.
 
 ### Política de reprocessamento
 
@@ -224,7 +224,7 @@ A documentação consultada não informa o intervalo entre tentativas em stream.
 
 Quando as tentativas ou a idade máxima se esgotam, o Lambda descarta o registro, grava no destino de falha e segue com o shard. O aviso daquela avaliação não sai sozinho.
 
-O destino declarado é o bucket de relatórios, cujo nome está no output `BucketRelatoriosNome` da stack. A role da função só pode gravar objetos no prefixo `aws/lambda/`, e a documentação da AWS indica este caminho:
+O destino declarado é o bucket de relatórios, cujo nome está no output `BucketRelatoriosNome` da stack. O Lambda grava os registros descartados no prefixo `aws/lambda/`, que é definido pelo serviço, e a documentação da AWS indica este caminho:
 
 ```
 aws/lambda/<ESM-UUID>/<shardID>/AAAA/MM/DD/...
@@ -240,7 +240,7 @@ Não vão para esse prefixo:
 
 **Primeiro deploy.** Com `TRIM_HORIZON`, avaliações críticas gravadas até 1 hora antes da criação do mapeamento podem gerar aviso. As mais antigas ainda retidas no Stream podem ir direto para o destino de falha.
 
-**S3 como destino ainda depende do deploy.** A documentação da AWS se contradiz: o guia de erros do Lambda e a referência do CloudFormation aceitam S3 para DynamoDB, enquanto a tabela de parâmetros do Lambda e a propriedade do SAM citam só SQS e SNS. Se o deploy recusar S3, vale o plano B da decisão D4 do design: o destino passa a ser o tópico de administradores e a permissão de S3 sai da role. Nesse caso, nada é gravado em `aws/lambda/`, o destino recebe só metadados, sem o conteúdo do evento, e esta seção precisa ser corrigida.
+**Permissão de S3 na role.** O deploy em dev confirmou que o Lambda aceita S3 como destino de falha para o Stream do DynamoDB. Ao criar o mapeamento, porém, ele exige `s3:PutObject` no bucket inteiro e recusa uma permissão limitada a `aws/lambda/*`. Por isso a role tem `s3:PutObject` em `<bucket>/*`, sempre com a condição `s3:ResourceAccount` apontando para a própria conta. Os objetos continuam caindo em `aws/lambda/`, porque quem escolhe o caminho é o Lambda, não a role.
 
 ### Esvaziar o bucket antes de `sam delete`
 

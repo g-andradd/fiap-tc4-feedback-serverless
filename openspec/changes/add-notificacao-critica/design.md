@@ -96,9 +96,21 @@ Criptografia: o bucket usa SSE-S3, sem KMS, então não há permissão extra.
 
 Segurança: a mesma página alerta que excluir o bucket sem remover o destino permite que outra conta recrie o nome e receba os registros, e pede a condição `s3:ResourceAccount`, que a role adota (D8). Como o mapeamento e o bucket ficam na mesma stack, `sam delete` remove os dois.
 
-**A documentação se contradiz:** o [guia de erros](https://docs.aws.amazon.com/lambda/latest/dg/services-dynamodb-errors.html) e a [referência do CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-eventsourcemapping-onfailure.html) aceitam S3 para DynamoDB. Já a [tabela de parâmetros](https://docs.aws.amazon.com/lambda/latest/dg/services-ddb-params.html) e a [propriedade do SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-property-function-dynamodb.html) citam só SQS e SNS. Sigo o guia, que é o mais específico e traz exemplo de S3 para DynamoDB. Verificado localmente: o SAM repassa o ARN sem alterar e `sam validate --lint` passa. **A prova final é o primeiro deploy.**
+**A documentação se contradiz:** o [guia de erros](https://docs.aws.amazon.com/lambda/latest/dg/services-dynamodb-errors.html) e a [referência do CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-eventsourcemapping-onfailure.html) aceitam S3 para DynamoDB. Já a [tabela de parâmetros](https://docs.aws.amazon.com/lambda/latest/dg/services-ddb-params.html) e a [propriedade do SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-property-function-dynamodb.html) citam só SQS e SNS. Sigo o guia, que é o mais específico e traz exemplo de S3 para DynamoDB. Verificado localmente: o SAM repassa o ARN sem alterar e `sam validate --lint` passa.
 
-**Plano B, se o deploy recusar S3:** trocar `Destination` para `!Ref TopicoAdmins` e remover a permissão de S3, sem mudar o bootstrap. Perde o conteúdo e a independência do SNS, mas mantém o aviso em caso de falha transitória. Por decisão do Gabriel em 04/11/2026, o plano B é aplicado sem nova consulta, e o que aconteceu fica registrado em `qa.md` deste change.
+**Resolvido no primeiro deploy (05/11/2026): o serviço aceita S3 como destino, mas exige o bucket inteiro.** O deploy em dev falhou ao criar `NotificarCriticaAvaliacaoCriada` com `InvalidParameterValueException: The function execution role does not have permissions to call PutObject on S3`. O destino foi aceito; o que faltou foi escopo. Teste com role e função temporárias contra o Stream real de dev:
+
+| Recurso de `s3:PutObject` | `s3:ResourceAccount` | Resultado |
+|---|---|---|
+| `<bucket>/aws/lambda/*` | sim | recusado |
+| `<bucket>/aws/lambda/*` | não | recusado |
+| `<bucket>/*` | sim | aceito, duas vezes |
+
+Conclusão: na criação do mapeamento, o Lambda valida `PutObject` no bucket inteiro, e não no prefixo onde de fato grava. O recurso passa a ser `${BucketRelatorios.Arn}/*`, mantendo `s3:ResourceAccount`.
+
+Custo: a função passa a poder gravar em qualquer chave do bucket de relatórios, inclusive no prefixo do relatório semanal. Não há ampliação além do boundary, que já liberava `feedback-*-<amb>/*` (`ObjetosDoAmbiente`). Os registros continuam indo para `aws/lambda/`, porque o prefixo é definido pelo serviço, e a função não tem código que grave no S3.
+
+**Plano B, não aplicado:** trocar `Destination` para `!Ref TopicoAdmins` e remover a permissão de S3, sem mudar o bootstrap. Perde o conteúdo e a independência do SNS, mas mantém o aviso em caso de falha transitória. Por decisão do Gabriel em 04/11/2026, seria aplicado sem nova consulta. A condição dele (deploy recusar S3 como destino) não ocorreu, e aplicá-lo perderia o conteúdo do lote, então a correção foi ampliar o recurso do `PutObject`. O que aconteceu fica registrado em `qa.md` deste change.
 
 `Type` fica de fora do `OnFailure` de propósito, para o SAM não gerar política por conta própria: a política precisa ser a da D8.
 
@@ -153,7 +165,7 @@ Role gerada, logical ID `NotificarCriticaRole`, com boundary:
 |---|---|---|
 | Inline | `sns:Publish` | ARN do tópico |
 | Inline | `kms:Decrypt` e `kms:GenerateDataKey*` | `key/*` da conta e região, com `kms:ViaService = sns.<região>.amazonaws.com` |
-| Inline | `s3:PutObject` | `<bucket>/aws/lambda/*`, com `s3:ResourceAccount` |
+| Inline | `s3:PutObject` | `<bucket>/*`, com `s3:ResourceAccount` (D4: o serviço recusa escopo menor) |
 | Inline | `s3:ListBucket` | ARN do bucket, com `s3:ResourceAccount` |
 | [`AWSLambdaDynamoDBExecutionRole`](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AWSLambdaDynamoDBExecutionRole.html) | `dynamodb:DescribeStream`, `dynamodb:GetRecords`, `dynamodb:GetShardIterator`, `dynamodb:ListStreams`, `logs:CreateLogGroup`, `logs:CreateLogStream` e `logs:PutLogEvents` | `*` na política, limitado pelo boundary |
 | `AWSLambdaBasicExecutionRole` | `logs:CreateLogGroup`, `logs:CreateLogStream` e `logs:PutLogEvents` | limitado pelo boundary |
@@ -176,7 +188,7 @@ Alternativa descartada: política `SNSPublishMessagePolicy` do SAM. Não cobre a
 ## Risks / Trade-offs
 
 - **Filtro por `eventName`:** a documentação se contradiz (D1). Se não funcionar, a função é invocada em alteração e D2 não publica nada. Custo mínimo. A tarefa 5.5 mostra qual dos casos é real.
-- **S3 como destino:** a documentação se contradiz (D4). Se o deploy recusar, o plano B de uma linha é aplicado sem nova consulta ao Gabriel.
+- **S3 como destino:** a documentação se contradizia (D4), e o primeiro deploy resolveu: o serviço aceita, desde que `s3:PutObject` cubra o bucket inteiro. Trade-off: a função pode gravar em qualquer chave do bucket, inclusive no prefixo do relatório semanal, dentro do que o boundary já permitia. Mitigação: o código da função não usa S3, e quem grava é o serviço, sempre em `aws/lambda/`.
 - **Objeto em `aws/lambda/` contém a descrição:** é um dado do aluno em bucket privado, a mesma sensibilidade do relatório, mas sem expiração. A política de ciclo de vida fica fora do escopo. Os relatórios ficam em outro prefixo, então "um único relatório por data" continua verdadeiro.
 - **`sam delete` com bucket não vazio:** o CloudFormation [só exclui bucket vazio](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-s3-bucket.html) (04/11/2026). Este change e o relatório passam a gravar nele. Mitigação: esvaziar antes, com o comando na documentação (tarefa 6.1).
 - **Backlog no primeiro deploy:** com `TRIM_HORIZON`, avaliações críticas de até 1 hora atrás geram aviso quando o mapeamento nasce, e as mais antigas, até o limite de 24 horas do Stream, podem ir para o destino de falha. Aceito, é melhor que perder evento.
@@ -232,7 +244,7 @@ Dependência: integrar depois de `add-registro-avaliacao`, porque usa o `Globals
             - Sid: GuardarLoteDescartado
               Effect: Allow
               Action: s3:PutObject
-              Resource: !Sub ${BucketRelatorios.Arn}/aws/lambda/*
+              Resource: !Sub ${BucketRelatorios.Arn}/*
               Condition:
                 StringEquals:
                   s3:ResourceAccount: !Ref AWS::AccountId
