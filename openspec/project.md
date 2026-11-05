@@ -160,3 +160,13 @@ Cada função tem uma única responsabilidade:
 | 4 | add-relatorio-semanal | relatorio-semanal |
 | 5 | add-observabilidade-seguranca | observabilidade, seguranca |
 | 6 | add-documentacao-entrega | documentacao |
+
+### Decisões iniciais para os próximos changes
+
+**`add-observabilidade-seguranca`, tópico de alarmes (05/11/2026):** sem criptografia em repouso, com política negando acesso sem TLS (`aws:SecureTransport` igual a `false`). A justificativa é que o tópico não carrega dado de aluno. O CloudWatch não publica em tópico com `alias/aws/sns`, e a alternativa com chave gerenciada pelo cliente tem custo mensal. A política do tópico precisa manter a publicação pelo CloudWatch. A confirmação final fica para a spec daquele change.
+
+**`add-observabilidade-seguranca`, achados do QA em dev (05/11/2026):**
+
+- **Aquecimento dos clientes do SDK:** aquecer os clientes de DynamoDB, SNS e S3 no `beforeCheckpoint` das três funções e medir de novo depois. A primeira chamada depois da restauração levou 4,2 s no DynamoDB do registro e 4,3 s no SNS da notificação, perto dos timeouts.
+- **Alarme da notificação:** não depender só de `Errors`, porque a falha parcial do lote termina a invocação normalmente e não aparece nessa métrica. Usar métrica própria ou filtro de log em ERROR.
+- **WARN "No metrics were emitted":** eliminar o aviso que o Powertools grava a cada invocação sem métrica, ou garantir que ele não dispare alarme por nível de log.
