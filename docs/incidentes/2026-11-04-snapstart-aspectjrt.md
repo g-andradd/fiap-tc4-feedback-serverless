@@ -1,6 +1,8 @@
-# Incidente: deploy em dev falhou na inicialização com SnapStart
+# Incidente: deploys em dev falharam no SnapStart e na tag da API
 
-**Data:** 04/11/2026. **Ambiente:** dev. **Situação:** correção pronta, aguardando merge. Só o próximo deploy em dev prova o resultado na AWS.
+**Data:** 04/11/2026 e 05/11/2026 (UTC). **Ambiente:** dev. **Situação:** duas falhas seguidas. A correção do SnapStart está na `develop`. A da permissão de tag já está aplicada na conta, com o bootstrap reaplicado em 05/11/2026, e o arquivo aguarda o merge. Só o próximo deploy em dev prova o resultado na AWS.
+
+As seções abaixo tratam da primeira falha. A segunda está em [Segunda falha](#segunda-falha-permissão-de-tag-no-stage-da-api).
 
 ## Sintoma
 
@@ -46,3 +48,47 @@ O desvio é revisto na primeira release do Powertools que traga o commit `f62850
 - **Outras funções:** `add-notificacao-critica` e `add-relatorio-semanal` têm o mesmo teste e a mesma dependência nas tasks.
 - **O que faltou:** a verificação do design só confirmou que o módulo compilava e carregava as classes sem o jar. Nem os testes, nem a validação local do QA, nem a revisão executaram os hooks.
 - **Limite do teste:** ele roda em JVM comum, sem checkpoint real. A prova de SnapStart continua sendo a versão publicada, na tarefa 6.3.
+
+## Segunda falha: permissão de tag no Stage da API
+
+### Sintoma
+
+O merge do PR #5 (`e5df006`) disparou a [execução 41943350426](https://github.com/g-andradd/fiap-tc4-feedback-serverless/actions/runs/41943350426), em 05/11/2026. A versão e o alias da função chegaram a `CREATE_COMPLETE`. Depois, o Stage da API falhou:
+
+```
+Resource of type 'AWS::ApiGatewayV2::Stage': User: [...]/github-deploy-feedback-dev/deploy-41943350426
+is not authorized to perform: apigateway:TagResource
+on resource: arn:aws:apigateway:sa-east-1::/apis/<id>/stages
+because no identity-based policy allows the apigateway:TagResource action
+```
+
+A stack voltou para `UPDATE_ROLLBACK_COMPLETE`. O rollback apagou a função, então `State` e `OptimizationStatus` ainda não foram conferidos. A versão ter estabilizado indica que a correção do `aspectjrt` funcionou, mas a prova continua sendo a tarefa 6.3.
+
+### Causa
+
+As tags da stack, definidas no `samconfig.toml`, são aplicadas aos recursos que aceitam tag. O handler de `AWS::ApiGatewayV2::Stage` exige `apigateway:TagResource`, e o bootstrap só liberava os verbos HTTP (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).
+
+A ação passou despercebida porque as fontes divergem. Ela está no esquema do CloudFormation e na mensagem de erro, mas não aparece na referência de serviço do IAM, no catálogo do cfn-lint nem no Access Analyzer. A falha só apareceu agora porque o primeiro deploy parou antes de chegar ao Stage.
+
+### Evidência
+
+| Fonte | O que mostra |
+|---|---|
+| Eventos da stack `feedback-dev` | `CREATE_FAILED` no Stage às 00:45:44 UTC, com a mensagem acima |
+| CloudTrail, `CreateStage` | `AccessDenied` às 00:45:43 UTC, com a role de deploy de dev |
+| CloudTrail, `iam:CreateServiceLinkedRole` | `AccessDenied` às 00:45:40 UTC, com a mesma role, pedido por `apigateway.amazonaws.com` |
+| `describe-type` de `AWS::ApiGatewayV2::Stage` | O handler `create` lista `apigateway:TagResource` |
+
+### Correção
+
+`apigateway:TagResource` e `apigateway:UntagResource` no Allow `ApisNaRegiao` e no Deny `NegaEscritaEmApiDeOutroAmbiente`, nos três ambientes de `infra/bootstrap/github-oidc.yaml`. O recurso `PermissoesAplicacao` também ganhou a supressão de `W3037`, porque o lint do CI rejeita essas duas ações.
+
+### Dúvida em aberto
+
+`AWSServiceRoleForAPIGateway` não existe na conta, e a negação de `iam:CreateServiceLinkedRole` veio 3 segundos antes da falha do Stage. Não está claro se o Stage depende dessa role. Por isso, a permissão não entrou no bootstrap.
+
+### Prevenção
+
+- **Auditoria:** as permissões de notificação, relatório e observabilidade foram conferidas contra o esquema do CloudFormation e simuladas com `simulate-custom-policy`, nos três ambientes.
+- **Limite da auditoria:** o esquema não lista chamadas extras do serviço, como a service-linked role, e o simulador só compara texto de ação. Recursos nunca implantados só ficam provados no deploy.
+- **O que faltou:** a conferência das ações do bootstrap não olhou o que o handler de cada tipo exige no esquema do CloudFormation.
