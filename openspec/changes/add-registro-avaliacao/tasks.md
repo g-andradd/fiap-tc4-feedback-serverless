@@ -38,7 +38,7 @@ Depende de `add-fundacao-projeto` integrado e com o bootstrap aplicado. Tarefas 
 
 ## 6. Deploy em dev e conferência
 - [x] 6.1 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-registro-avaliacao`, push, PR para `develop`) e conferir o CI verde
-- [ ] 6.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`. O primeiro deploy falhou, ver a seção 8
+- [ ] 6.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`. Os dois primeiros deploys falharam, ver as seções 8 e 9
 - [ ] 6.3 [IA] qa: conferir o SnapStart na versão publicada: `aws lambda get-function-configuration --function-name feedback-registrar-avaliacao-dev:live --region sa-east-1 --query "{Version:Version,State:State,OptimizationStatus:SnapStart.OptimizationStatus}"`. Esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`. Registrar o resultado como a prova prática prevista em fundação D7
 - [ ] 6.4 [IA] qa: confirmar que a integração da API aponta para o alias `live`, e não para `$LATEST`
 - [ ] 6.5 [IA] qa: confirmar a tag `ambiente=dev` na API com `aws apigatewayv2 get-api --api-id <id> --region sa-east-1 --query Tags` (D1)
@@ -55,5 +55,12 @@ Depende de `add-fundacao-projeto` integrado e com o bootstrap aplicado. Tarefas 
 - [x] 8.2 [IA] dev-java: criar `PrimingSnapStartTest`, executando `ClassPreLoader.preloadClasses()` e os hooks de `TracingUtils` e `MetricsFactory`, com a prova de que ele falha sem o jar
 - [x] 8.3 [IA] dev-java: validar com `mvn -B clean verify` e `sam build`, e conferir `aspectjrt` em `lib/`
 - [x] 8.4 [IA] registrar o incidente em `docs/incidentes/2026-11-04-snapstart-aspectjrt.md`
-- [ ] 8.5 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-registro-avaliacao-fix-snapstart`, push, PR para `develop`), fazer o merge e conferir o deploy verde, que fecha a 6.2
+- [ ] 8.5 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-registro-avaliacao-fix-snapstart`, push, PR para `develop`), fazer o merge e conferir o deploy verde, que fecha a 6.2. O merge foi feito e o deploy falhou por outro motivo, ver a seção 9
 - [ ] 8.6 [Gabriel] Rever o desvio na primeira release do Powertools que traga o commit `f628502`
+
+## 9. Correção da permissão de tag na API
+- [x] 9.1 [IA] devops: acrescentar `apigateway:TagResource` e `apigateway:UntagResource` ao Allow `ApisNaRegiao` e ao Deny `NegaEscritaEmApiDeOutroAmbiente` em `infra/bootstrap/github-oidc.yaml`, nos três ambientes
+- [x] 9.2 [IA] devops: auditar as permissões de notificação, relatório e observabilidade contra o esquema do CloudFormation e medir as políticas contra o limite de 6.144 caracteres
+- [x] 9.3 [IA] registrar a segunda falha em `docs/incidentes/2026-11-04-snapstart-aspectjrt.md`
+- [x] 9.4 [Gabriel] Reaplicar o bootstrap com o perfil administrativo, conferindo o change set antes
+- [ ] 9.5 [Gabriel] Executar os comandos Git fornecidos (commit na `feature/add-registro-avaliacao-fix-tag-api`, push, PR para `develop`), fazer o merge e conferir o deploy verde, que fecha a 6.2 e a 8.5
