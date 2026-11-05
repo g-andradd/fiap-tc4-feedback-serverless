@@ -36,5 +36,5 @@ Legenda de responsável: **[IA]** feito pelos agentes, **[Gabriel]** ação manu
 ## 6. Validação
 - [x] 6.1 [Gabriel] Abrir PR `feature/add-fundacao-projeto` para `develop` e conferir o CI verde
 - [x] 6.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`
-- [ ] 6.3 [Gabriel] Confirmar a assinatura de e-mail do SNS de dev
+- [x] 6.3 [Gabriel] Confirmar a assinatura de e-mail do SNS de dev
 - [x] 6.4 [IA] Agente QA confere os cenários das specs contra a stack implantada e registra o resultado
