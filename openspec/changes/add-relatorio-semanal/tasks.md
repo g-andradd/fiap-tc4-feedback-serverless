@@ -15,19 +15,20 @@ Depende de `add-registro-avaliacao` integrado: usa o `Globals`, o contrato do it
 - [ ] 1.8 [IA] dev-java: Javadoc e `mvn -B verify`
 
 ## 2. Função (`functions/gerar-relatorio-semanal`)
-- [ ] 2.1 [IA] dev-java: declarar no `pom.xml` do módulo as dependências de Lambda, Powertools, `url-connection-client`, `dynamodb`, `s3` e `sns`, com as exclusões de `apache-client`, `apache5-client` e `netty-nio-client` em cada cliente; conferir com `mvn dependency:tree`
+- [ ] 2.1 [IA] dev-java: declarar no `pom.xml` do módulo as dependências de Lambda, Powertools, `aspectjrt` em escopo `runtime` (`add-registro-avaliacao` D6), `url-connection-client`, `dynamodb`, `s3` e `sns`, com as exclusões de `apache-client`, `apache5-client` e `netty-nio-client` em cada cliente; conferir com `mvn dependency:tree`
 - [ ] 2.2 [IA] dev-java: criar `log4j2.xml` igual ao das outras funções
 - [ ] 2.3 [IA] dev-java: criar a leitura do índice com `queryPaginator`, uma consulta por dia e conversão pelo `Avaliacao.deAtributos` (D3)
 - [ ] 2.4 [IA] dev-java: criar `GerarRelatorioSemanalHandler` na ordem da D9: validar, ler, consolidar, gravar e publicar, com clientes `static final`, cadeia padrão de credenciais e data calculada dentro do handler
 - [ ] 2.5 [IA] dev-java: testes do handler com clientes simulados: várias páginas lidas por inteiro; falha em todos os dias, em um dia e no meio de um dia sem gravação e sem aviso; item inválido sem gravação; falha ao gravar sem aviso; falha ao publicar com relatório gravado e execução em falha; data inválida sem nenhuma chamada; janela vazia com gravação e aviso; mesma chave na reexecução
 - [ ] 2.6 [IA] dev-java: teste do handler com avaliação de descrição `TEXTO-MARCADOR-AVISO` e notas 2, 5 e 8: o objeto gravado contém o marcador, e a mensagem capturada no SNS não contém o marcador nem a nota de nenhuma avaliação, com o texto comparado por inteiro
 - [ ] 2.7 [IA] dev-java: teste com appender em memória: marcador da descrição e nota individual não aparecem em nenhum nível, com e sem falha
-- [ ] 2.8 [IA] dev-java: validar com `mvn -B verify`
+- [ ] 2.8 [IA] dev-java: criar `PrimingSnapStartTest`, como em `add-registro-avaliacao`: executa `ClassPreLoader.preloadClasses()` e os hooks de `TracingUtils` e `MetricsFactory`, com a prova de que ele falha sem o `aspectjrt`
+- [ ] 2.9 [IA] dev-java: validar com `mvn -B verify`
 
 ## 3. Infraestrutura
 - [ ] 3.1 [IA] devops: acrescentar `LogGerarRelatorioSemanal`, `GerarRelatorioSemanal` e os outputs ao `template.yaml`, conforme o `design.md`, sem alterar `Globals`
 - [ ] 3.2 [IA] devops: validar com `sam validate --lint`
-- [ ] 3.3 [IA] devops: validar com `mvn -B install` seguido de `sam build`, usando JDK 25
+- [ ] 3.3 [IA] devops: validar com `mvn -B install` seguido de `sam build`, usando JDK 25, e conferir `aspectjrt` em `lib/`, sem `aspectjtools` nem `aspectjweaver`
 
 ## 4. Validação local
 - [ ] 4.1 [IA] qa: conferir a cobertura de cada `#### Scenario` da spec nos testes e relatar os que dependem da stack implantada
