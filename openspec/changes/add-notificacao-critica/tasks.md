@@ -29,14 +29,14 @@ Depende de `add-registro-avaliacao` integrado: usa o `Globals`, o contrato do it
 
 ## 5. Deploy em dev e conferência
 - [x] 5.1 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-notificacao-critica`, push, PR para `develop`) e conferir o CI verde
-- [ ] 5.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`. Se o deploy recusar S3 como destino, vale a tarefa 5.9. O primeiro deploy, do merge `5cb6f4d`, falhou pelo escopo do `PutObject`, ver a seção 7
-- [ ] 5.3 [Gabriel] Confirmar que a assinatura de e-mail de dev está ativa
-- [ ] 5.4 [IA] qa: conferir o SnapStart: `aws lambda get-function-configuration --function-name feedback-notificar-critica-dev:live --region sa-east-1 --query "{Version:Version,State:State,OptimizationStatus:SnapStart.OptimizationStatus}"`. Esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`
-- [ ] 5.5 [IA] qa: conferir o mapeamento com `aws lambda list-event-source-mappings --function-name feedback-notificar-critica-dev:live --region sa-east-1`: alias no `FunctionArn`, filtro, tentativas, idade máxima e destino. Depois alterar um item crítico com `aws dynamodb update-item` e olhar a métrica `Invocations` e os logs. Registrar se o filtro por `eventName` evitou a invocação ou se foi D2 que evitou o aviso (Risks)
-- [ ] 5.6 [IA] qa: registrar avaliações `CRITICA`, `MEDIA` e `BAIXA` e conferir que só a crítica invoca a função e que o e-mail traz descrição, urgência e data de envio
-- [ ] 5.7 [IA] qa: conferir nos logs do CloudWatch que o marcador da descrição não aparece
-- [ ] 5.8 [IA] qa: registrar o relatório de conformidade em `qa.md` deste change
-- [ ] 5.9 [IA] devops e qa: somente se o deploy recusar S3 como destino, devops aplica o plano B da D4 sem nova consulta ao Gabriel e entrega os comandos Git; qa registra em `qa.md` deste change o erro do deploy, a troca feita e o resultado do novo deploy
+- [x] 5.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`. Se o deploy recusar S3 como destino, vale a tarefa 5.9. O primeiro deploy, do merge `5cb6f4d`, falhou pelo escopo do `PutObject`, ver a seção 7. O segundo, do merge `c6bb879`, ficou verde
+- [x] 5.3 [Gabriel] Confirmar que a assinatura de e-mail de dev está ativa
+- [x] 5.4 [IA] qa: conferir o SnapStart: `aws lambda get-function-configuration --function-name feedback-notificar-critica-dev:live --region sa-east-1 --query "{Version:Version,State:State,OptimizationStatus:SnapStart.OptimizationStatus}"`. Esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`
+- [x] 5.5 [IA] qa: conferir o mapeamento com `aws lambda list-event-source-mappings --function-name feedback-notificar-critica-dev:live --region sa-east-1`: alias no `FunctionArn`, filtro, tentativas, idade máxima e destino. Depois alterar um item crítico com `aws dynamodb update-item` e olhar a métrica `Invocations` e os logs. Registrar se o filtro por `eventName` evitou a invocação ou se foi D2 que evitou o aviso (Risks)
+- [ ] 5.6 [IA] qa: registrar avaliações `CRITICA`, `MEDIA` e `BAIXA` e conferir que só a crítica invoca a função e que o e-mail traz descrição, urgência e data de envio. Execução feita; falta o Gabriel confirmar no inbox os dois e-mails de 05/11/2026, 22:15 UTC
+- [x] 5.7 [IA] qa: conferir nos logs do CloudWatch que o marcador da descrição não aparece
+- [x] 5.8 [IA] qa: registrar o relatório de conformidade em `qa.md` deste change
+- [x] 5.9 [IA] devops e qa: somente se o deploy recusar S3 como destino, devops aplica o plano B da D4 sem nova consulta ao Gabriel e entrega os comandos Git; qa registra em `qa.md` deste change o erro do deploy, a troca feita e o resultado do novo deploy. Não se aplicou: o S3 foi aceito como destino, e a falha foi de escopo, corrigida na seção 7
 
 ## 6. Documentação
 - [x] 6.1 [IA] documentador: registrar no README a política de reprocessamento, onde ficam os lotes descartados (`aws/lambda/` no bucket) e o passo de esvaziar o bucket antes de `sam delete`
@@ -47,5 +47,5 @@ Depende de `add-registro-avaliacao` integrado: usa o `Globals`, o contrato do it
 - [x] 7.2 [IA] devops: trocar o recurso de `GuardarLoteDescartado` para `<bucket>/*`, mantendo `s3:ResourceAccount`, no `template.yaml` desta branch e no de `feature/add-relatorio-semanal`, e validar com `sam validate --lint`
 - [x] 7.3 [IA] arquiteto: registrar na D4 e na tabela de permissões o escopo aceito e o custo dele
 - [x] 7.4 [IA] documentador: corrigir no README o parágrafo sobre S3 como destino, nas duas branches
-- [ ] 7.5 [Gabriel] Executar os comandos Git fornecidos (commit na `feature/add-notificacao-critica-fix-destino`, push, PR para `develop`), fazer o merge e conferir o deploy verde, que fecha a 5.2
-- [ ] 7.6 [IA] qa: registrar em `qa.md` deste change o erro do primeiro deploy, a troca feita e o resultado do novo deploy, junto com a 5.8
+- [x] 7.5 [Gabriel] Executar os comandos Git fornecidos (commit na `feature/add-notificacao-critica-fix-destino`, push, PR para `develop`), fazer o merge e conferir o deploy verde, que fecha a 5.2
+- [x] 7.6 [IA] qa: registrar em `qa.md` deste change o erro do primeiro deploy, a troca feita e o resultado do novo deploy, junto com a 5.8
