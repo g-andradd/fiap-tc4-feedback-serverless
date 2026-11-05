@@ -1,6 +1,6 @@
 # Incidente: deploys em dev falharam no SnapStart e na tag da API
 
-**Data:** 04/11/2026 e 05/11/2026 (UTC). **Ambiente:** dev. **Situação:** duas falhas seguidas. A correção do SnapStart está na `develop`. A da permissão de tag já está aplicada na conta, com o bootstrap reaplicado em 05/11/2026, e o arquivo aguarda o merge. Só o próximo deploy em dev prova o resultado na AWS.
+**Data:** 04/11/2026 e 05/11/2026 (UTC). **Ambiente:** dev. **Situação:** encerrado em 05/11/2026. O deploy da [execução 41968866186](https://github.com/g-andradd/fiap-tc4-feedback-serverless/actions/runs/41968866186), commit `09cee5d`, ficou verde. A conferência em dev trouxe `State: Active` e `OptimizationStatus: On` no alias `live`, versão 3, e `RESTORE_REPORT` em invocações reais. O relatório está em `openspec/changes/add-registro-avaliacao/qa.md`. O desvio do `aspectjrt` continua aberto até a release do Powertools com o commit `f628502` (tarefa 8.6).
 
 As seções abaixo tratam da primeira falha. A segunda está em [Segunda falha](#segunda-falha-permissão-de-tag-no-stage-da-api).
 
@@ -62,7 +62,7 @@ on resource: arn:aws:apigateway:sa-east-1::/apis/<id>/stages
 because no identity-based policy allows the apigateway:TagResource action
 ```
 
-A stack voltou para `UPDATE_ROLLBACK_COMPLETE`. O rollback apagou a função, então `State` e `OptimizationStatus` ainda não foram conferidos. A versão ter estabilizado indica que a correção do `aspectjrt` funcionou, mas a prova continua sendo a tarefa 6.3.
+A stack voltou para `UPDATE_ROLLBACK_COMPLETE`. O rollback apagou a função, então `State` e `OptimizationStatus` só foram conferidos no deploy seguinte, na tarefa 6.3, que confirmou a correção do `aspectjrt`.
 
 ### Causa
 
@@ -83,12 +83,12 @@ A ação passou despercebida porque as fontes divergem. Ela está no esquema do 
 
 `apigateway:TagResource` e `apigateway:UntagResource` no Allow `ApisNaRegiao` e no Deny `NegaEscritaEmApiDeOutroAmbiente`, nos três ambientes de `infra/bootstrap/github-oidc.yaml`. O recurso `PermissoesAplicacao` também ganhou a supressão de `W3037`, porque o lint do CI rejeita essas duas ações.
 
-### Dúvida em aberto
+### Dúvida que continua em aberto
 
-`AWSServiceRoleForAPIGateway` não existe na conta, e a negação de `iam:CreateServiceLinkedRole` veio 3 segundos antes da falha do Stage. Não está claro se o Stage depende dessa role. Por isso, a permissão não entrou no bootstrap.
+`AWSServiceRoleForAPIGateway` não existia na conta, e a negação de `iam:CreateServiceLinkedRole` veio 3 segundos antes da negação de `CreateStage`. Gabriel criou a role como passo manual, junto com a reaplicação do bootstrap, e o deploy seguinte ficou verde. Como as duas mudanças entraram antes do mesmo deploy, não ficou provado que o Stage dependa dela. A permissão não entrou no bootstrap, e a criação da role está no README, no passo 5 do bootstrap.
 
 ### Prevenção
 
 - **Auditoria:** as permissões de notificação, relatório e observabilidade foram conferidas contra o esquema do CloudFormation e simuladas com `simulate-custom-policy`, nos três ambientes.
-- **Limite da auditoria:** o esquema não lista chamadas extras do serviço, como a service-linked role, e o simulador só compara texto de ação. Recursos nunca implantados só ficam provados no deploy.
+- **Limite da auditoria:** o esquema não lista chamadas extras do serviço, como a service-linked role, e o simulador só compara texto de ação. Notificação, relatório e observabilidade só ficam provados no deploy de cada um.
 - **O que faltou:** a conferência das ações do bootstrap não olhou o que o handler de cada tipo exige no esquema do CloudFormation.

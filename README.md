@@ -2,7 +2,7 @@
 
 Tech Challenge da Fase 4 da pós-graduação em Arquitetura e Desenvolvimento Java (FIAP). Estudantes avaliam aulas com uma descrição e uma nota. Administradores recebem aviso imediato quando a avaliação é crítica e um relatório semanal com a consolidação dos feedbacks.
 
-Estado atual: a função `registrar-avaliacao` está implementada e testada localmente, mas ainda não foi implantada na AWS. `notificar-critica` e `gerar-relatorio-semanal` ainda não têm código.
+Estado atual: a função `registrar-avaliacao` está implantada e conferida em dev desde 05/11/2026. O relatório está em `openspec/changes/add-registro-avaliacao/qa.md`. O estado das demais funções está na seção de cada uma.
 
 ## Stack
 
@@ -52,7 +52,7 @@ O `sam build` copia só o `CodeUri` da função para uma pasta temporária e res
 
 Registra uma avaliação de aula. O endpoint não tem autenticação, que está fora do escopo do projeto.
 
-Este endpoint ainda não foi implantado, e nada desta seção foi executado contra a stack. As respostas abaixo vêm de `Respostas.java` e conferem com os testes do handler, que rodam em `mvn -B verify` com o DynamoDB simulado.
+Este endpoint foi conferido na stack de dev em 05/11/2026. As respostas abaixo vêm de `Respostas.java` e conferem com os testes do handler, que rodam em `mvn -B verify` com o DynamoDB simulado. A falha ao persistir (500) só tem prova nesses testes, porque não foi provocada na stack.
 
 ### Corpo da requisição
 
@@ -176,7 +176,7 @@ A coleção traz 33 requisições, cada uma com testes de status e corpo: 12 de 
 
 ## Conferir o SnapStart no alias
 
-Passo a seguir depois do deploy: esta conferência ainda não foi feita, porque a stack ainda não recebeu a função.
+Passo a seguir depois de cada deploy. Em dev, a conferência de 05/11/2026 trouxe `State` igual a `Active` e `OptimizationStatus` igual a `On`.
 
 O SnapStart só vale em versões publicadas e aliases. Por isso o comando consulta `:live`: sem o sufixo, a leitura seria de `$LATEST`, que não usa SnapStart.
 
@@ -300,9 +300,43 @@ printf '%s' "$EMAIL_ADMIN" | gh secret set EMAIL_ADMIN --env dev --repo g-andrad
 unset EMAIL_ADMIN
 ```
 
+### 5. Criar a service-linked role do API Gateway
+
+Este é um passo manual de administrador, feito uma vez por conta e antes do primeiro deploy da aplicação, ou seja, antes do primeiro push em `develop`. A role `AWSServiceRoleForAPIGateway` não faz parte do template, e as roles de deploy não conseguem criá-la.
+
+Confira antes se ela já existe. Se existir, este passo não é necessário:
+
+```bash
+aws iam get-role --role-name AWSServiceRoleForAPIGateway --profile tc4-admin
+```
+
+Se não existir, crie a role com o perfil administrativo:
+
+```bash
+aws iam create-service-linked-role --aws-service-name ops.apigateway.amazonaws.com --profile tc4-admin
+```
+
+O motivo é que as roles de deploy não têm `iam:CreateServiceLinkedRole`, de propósito, e a permissão não foi aberta no bootstrap. No deploy de 05/11/2026, o CloudTrail registrou essa ação negada à role de deploy de dev, pedida pelo API Gateway, 3 segundos antes da negação de `CreateStage`, que derrubou o `AWS::ApiGatewayV2::Stage`.
+
+A falha do Stage em si foi por `apigateway:TagResource`. Não ficou provado que o Stage dependa da service-linked role, porque a role e a correção da tag entraram juntas antes do deploy verde. Criar a role antes elimina essa dúvida numa conta nova.
+
 ### Atualizar o bootstrap depois
 
 Reaplique com o mesmo comando do passo 2, usando o perfil administrativo. As roles de deploy têm negação explícita para alterar a si mesmas, as próprias políticas, o provedor OIDC e a stack `feedback-bootstrap-oidc`, então essa atualização nunca passa pelo pipeline.
+
+Antes de aplicar, recomendamos gerar um change set para revisar as mudanças. Acrescente `--no-execute-changeset` ao comando do passo 2: a CLI cria o change set e termina sem executá-lo. Depois, troque `<ARN_DO_CHANGE_SET>` pelo ARN mostrado na saída, revise e aplique:
+
+```bash
+aws cloudformation describe-change-set \
+  --change-set-name "<ARN_DO_CHANGE_SET>" \
+  --region sa-east-1 \
+  --profile tc4-admin
+
+aws cloudformation execute-change-set \
+  --change-set-name "<ARN_DO_CHANGE_SET>" \
+  --region sa-east-1 \
+  --profile tc4-admin
+```
 
 ### Regras que os próximos templates precisam seguir
 

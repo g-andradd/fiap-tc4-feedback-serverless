@@ -160,3 +160,7 @@ Cada função tem uma única responsabilidade:
 | 4 | add-relatorio-semanal | relatorio-semanal |
 | 5 | add-observabilidade-seguranca | observabilidade, seguranca |
 | 6 | add-documentacao-entrega | documentacao |
+
+### Decisões iniciais para os próximos changes
+
+**`add-observabilidade-seguranca`, tópico de alarmes (05/11/2026):** sem criptografia em repouso, com política negando acesso sem TLS (`aws:SecureTransport` igual a `false`). A justificativa é que o tópico não carrega dado de aluno. O CloudWatch não publica em tópico com `alias/aws/sns`, e a alternativa com chave gerenciada pelo cliente tem custo mensal. A política do tópico precisa manter a publicação pelo CloudWatch. A confirmação final fica para a spec daquele change.
