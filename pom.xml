@@ -29,6 +29,7 @@
         <powertools.version>2.11.0</powertools.version>
         <!-- Mesma versão do jackson.version do powertools-parent 2.11.0. Suba junto com o Powertools. -->
         <jackson.version>2.22.3</jackson.version>
+        <aspectj.version>1.9.27</aspectj.version>
         <junit.version>5.14.4</junit.version>
         <assertj.version>3.27.7</assertj.version>
         <mockito.version>5.24.0</mockito.version>
@@ -103,6 +104,12 @@
                 <groupId>software.amazon.lambda</groupId>
                 <artifactId>powertools-metrics</artifactId>
                 <version>${powertools.version}</version>
+            </dependency>
+            <!-- Só para os hooks de priming do Powertools 2.11.0 no SnapStart. Sair na primeira release com o commit f628502, se o PrimingSnapStartTest continuar passando. -->
+            <dependency>
+                <groupId>org.aspectj</groupId>
+                <artifactId>aspectjrt</artifactId>
+                <version>${aspectj.version}</version>
             </dependency>
 
             <dependency>
