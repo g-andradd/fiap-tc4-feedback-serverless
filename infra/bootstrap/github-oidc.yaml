@@ -395,6 +395,13 @@ Resources:
 
       PermissoesAplicacao${Ambiente}:
         Type: AWS::IAM::ManagedPolicy
+        # O catálogo do cfn-lint não conhece apigateway:TagResource nem UntagResource (ver ApisNaRegiao).
+        # Sem isso, o sam validate --lint do CI reprova o template.
+        Metadata:
+          cfn-lint:
+            config:
+              ignore_checks:
+                - W3037
         Properties:
           ManagedPolicyName: !Sub github-deploy-feedback-${Ambiente}-aplicacao
           Description: !Sub Funções, API, agendamento, IAM e logs do deploy no ambiente ${Ambiente}.
@@ -472,6 +479,8 @@ Resources:
 
               # O ARN usa o ID da API, não o nome: não há como restringir por ambiente aqui.
               # A negação logo abaixo cobre as APIs marcadas com a tag de outro ambiente.
+              # TagResource e UntagResource não constam na referência de serviço do IAM, mas o
+              # handler de AWS::ApiGatewayV2::Stage as exige ao criar e atualizar com tags.
               - Sid: ApisNaRegiao
                 Effect: Allow
                 Action:
@@ -480,6 +489,8 @@ Resources:
                   - apigateway:PATCH
                   - apigateway:POST
                   - apigateway:PUT
+                  - apigateway:TagResource
+                  - apigateway:UntagResource
                 Resource:
                   - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis
                   - !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/apis/*
@@ -493,6 +504,8 @@ Resources:
                   - apigateway:PATCH
                   - apigateway:POST
                   - apigateway:PUT
+                  - apigateway:TagResource
+                  - apigateway:UntagResource
                 Resource: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}::/*
                 Condition:
                   "Null":
