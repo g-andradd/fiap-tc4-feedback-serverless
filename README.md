@@ -272,7 +272,7 @@ sam delete --stack-name "$STACK" --region sa-east-1 --profile tc4-admin
 
 ## Relatório semanal: acionamento manual e download
 
-Esta seção descreve o que está declarado no `template.yaml` e no código de `gerar-relatorio-semanal` e `functions/dominio`. A função ainda não foi implantada, então nada daqui foi executado na AWS.
+Esta seção descreve o que está declarado no `template.yaml` e no código de `gerar-relatorio-semanal` e `functions/dominio`. O QA em dev de 06/11/2026 conferiu na AWS o acionamento manual, a reexecução para a mesma data, a data inválida, o acesso anônimo ao bucket e o agendamento implantado, tudo conforme. O relatório está em `openspec/changes/add-relatorio-semanal/qa.md`. A primeira execução agendada, em 09/11/2026 às 08:00 em São Paulo, ainda não foi observada.
 
 O template agenda a geração para toda segunda às 08:00 em America/Sao_Paulo. O comando abaixo gera o relatório em qualquer dia, sem depender do agendamento.
 
@@ -309,6 +309,8 @@ Em caso de falha, a saída do comando traz `FunctionError`, e a mensagem vai par
 |---|---|
 | Data de referência rejeitada | `Data de referência inválida. Informe uma data existente no formato yyyy-MM-dd.` |
 | Falha na leitura, na gravação ou na publicação | `Falha ao gerar o relatório semanal. Consulte os logs da função.` |
+
+Na data rejeitada, o `resposta.json` traz também `errorType` e `stackTrace`, com nomes de classe, arquivo e linha. Não há dado do aluno nem da conta, mas no vídeo convém mostrar só a mensagem.
 
 Os efeitos seguem a ordem ler, gravar e publicar, e cada passo só roda se o anterior der certo. Falha na leitura, inclusive de um único dia ou de um item inválido, não grava nem avisa. Falha na gravação não avisa. Falha na publicação deixa o relatório guardado, e reexecutar para a mesma data corrige.
 
