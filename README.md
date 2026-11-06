@@ -2,13 +2,13 @@
 
 Tech Challenge da Fase 4 da pós-graduação em Arquitetura e Desenvolvimento Java (FIAP). Estudantes avaliam aulas com uma descrição e uma nota. Administradores recebem aviso imediato quando a avaliação é crítica e um relatório semanal com a consolidação dos feedbacks.
 
-Estado atual: a função `registrar-avaliacao` está implantada e conferida em dev desde 05/11/2026. O relatório está em `openspec/changes/add-registro-avaliacao/qa.md`. O estado das demais funções está na seção de cada uma.
+Estado atual: a função `registrar-avaliacao` está implantada e conferida em dev desde 05/11/2026. O relatório está em `openspec/changes/add-registro-avaliacao/qa.md`. O estado das demais funções está na seção de cada uma. Alarmes, dashboard, aquecimento dos clientes e memória de 1024 MB estão declarados no `template.yaml` e ainda não foram implantados; veja [Monitoramento e alarmes](#monitoramento-e-alarmes).
 
 ## Stack
 
 - Java 25 e Maven multi-módulo
 - AWS Lambda com SnapStart, API Gateway, DynamoDB, SNS, S3 e EventBridge Scheduler
-- CloudWatch e X-Ray, com Powertools for AWS Lambda (Java)
+- CloudWatch (logs, métricas, alarmes e dashboard) e X-Ray, com Powertools for AWS Lambda (Java)
 - AWS SAM para infraestrutura como código
 - GitHub Actions com autenticação OIDC na AWS
 - JUnit 5, AssertJ e Mockito nos testes
@@ -47,6 +47,21 @@ sam build
 ```
 
 O `sam build` copia só o `CodeUri` da função para uma pasta temporária e resolve o parent e o módulo `dominio` pelo `~/.m2`. Sem o `install`, ele falha com `JavaMavenWorkflow:MavenBuild - Maven Failed`. Os testes do módulo rodam de novo a cada `sam build`. No Git Bash do Windows, o comando pode precisar ser `sam.cmd build`.
+
+### Integração contínua nos pull requests
+
+O workflow `.github/workflows/ci.yml` roda em todo PR para `develop`, `release/**` e `main`. O job se chama `ci`, que é o check obrigatório da proteção de branch.
+
+| Passo | Comando | O que pega |
+|---|---|---|
+| Build, testes e install no repositório Maven local | `mvn -B install` | Erro de compilação e teste quebrado |
+| Empacotar as funções | `sam build` | Função declarada no template sem código empacotável, ou dependência que não chega ao pacote |
+| Validar o template da aplicação | `sam validate --lint --region sa-east-1` | Erro de sintaxe e de regra do template |
+| Validar o template de bootstrap | `sam validate --lint --region sa-east-1 -t infra/bootstrap/github-oidc.yaml` | O mesmo, no bootstrap |
+
+Até este change, o CI rodava `mvn -B verify` e as duas validações. Um template que apontasse para uma função sem código passava no PR e só falhava no `sam build` do deploy, depois do merge. Agora o PR repete o par `mvn -B install` e `sam build` do `deploy.yml` e falha antes. O `install` substitui o `verify` porque o `sam build` precisa do módulo `dominio` no `~/.m2`, como explicado acima, e ele já passa pelos testes.
+
+O `sam build` não chama a AWS, então o CI continua sem credencial e sem OIDC. O custo é tempo: o design estima de 45 a 60 segundos a mais por PR, porque o `sam build` roda o Maven de novo em cada função. O tempo real será conferido no primeiro PR com o workflow novo.
 
 ## Endpoint `POST /avaliacao`
 
@@ -176,25 +191,58 @@ A coleção traz 33 requisições, cada uma com testes de status e corpo: 12 de 
 
 ## Conferir o SnapStart no alias
 
-Passo a seguir depois de cada deploy. Em dev, a conferência de 05/11/2026 trouxe `State` igual a `Active` e `OptimizationStatus` igual a `On`.
+Passo a seguir depois de cada deploy. Em dev, a conferência de 05/11/2026 trouxe `State` igual a `Active` e `OptimizationStatus` igual a `On`, ainda com 512 MB.
 
 O SnapStart só vale em versões publicadas e aliases. Por isso o comando consulta `:live`: sem o sufixo, a leitura seria de `$LATEST`, que não usa SnapStart.
 
 ```bash
-aws lambda get-function-configuration --function-name feedback-registrar-avaliacao-dev:live --region sa-east-1 --query "{Version:Version,State:State,OptimizationStatus:SnapStart.OptimizationStatus}"
+aws lambda get-function-configuration --function-name feedback-registrar-avaliacao-dev:live --region sa-east-1 --query "{Version:Version,State:State,OptimizationStatus:SnapStart.OptimizationStatus,MemorySize:MemorySize}"
 ```
 
-Resultado esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`. `Version` traz o número da versão publicada para a qual o alias aponta.
+Resultado esperado: `State` igual a `Active`, `OptimizationStatus` igual a `On` e `MemorySize` igual a 1024. `Version` traz o número da versão publicada para a qual o alias aponta.
 
 ```json
 {
     "Version": "<NUMERO_DA_VERSAO>",
     "State": "Active",
-    "OptimizationStatus": "On"
+    "OptimizationStatus": "On",
+    "MemorySize": 1024
 }
 ```
 
-Para `hml` e `prod`, troque o sufixo no nome da função. Acrescente `--profile tc4-admin` se a sua credencial padrão não for dessa conta. Em Java, o snapshot é apagado depois de 14 dias sem invocação, e a chamada seguinte falha com `SnapStartNotReadyException` até a versão voltar a `Active`.
+Para as outras funções, troque o nome por `feedback-notificar-critica-<ambiente>` ou `feedback-gerar-relatorio-semanal-<ambiente>`. Para `hml` e `prod`, troque o sufixo. Acrescente `--profile tc4-admin` se a sua credencial padrão não for dessa conta. Em Java, o snapshot é apagado depois de 14 dias sem invocação, e a chamada seguinte falha com `SnapStartNotReadyException` até a versão voltar a `Active`.
+
+### Memória e aquecimento dos clientes
+
+O `Globals` do template define `MemorySize: 1024` para as três funções, no lugar dos 512 MB anteriores, e nenhuma função sobrescreve o valor. A CPU do Lambda cresce com a memória, e o que pesava era CPU: a função usa cerca de 215 MB, mas a primeira chamada ao SDK depois da restauração levou 4.259 ms no DynamoDB do registro e 4.301 ms no SNS da notificação, perto dos limites de 8 s e 5 s dos clientes.
+
+Além da memória, cada função registra um hook do SnapStart (`Aquecimento`, com `org.crac`) que faz uma chamada de leitura com cada cliente do SDK antes do snapshot. Assim o snapshot já guarda o cliente inicializado:
+
+| Função | Chamada no aquecimento | Permissão nova na role |
+|---|---|---|
+| `registrar-avaliacao` | `DescribeTable` na tabela de avaliações | `dynamodb:DescribeTable` na tabela (`AquecerCliente`) |
+| `notificar-critica` | `GetTopicAttributes` no tópico de administradores | `sns:GetTopicAttributes` no tópico (`AquecerCliente`) |
+| `gerar-relatorio-semanal` | `Query` no índice `por-data` numa partição que não existe, com `Limit` 1 | nenhuma, a role já tinha `dynamodb:Query` no índice |
+| `gerar-relatorio-semanal` | `HeadBucket` no bucket de relatórios | `s3:ListBucket` no bucket, com `s3:ResourceAccount` (`AquecerClienteS3`) |
+| `gerar-relatorio-semanal` | `GetTopicAttributes` no tópico de administradores | `sns:GetTopicAttributes` no tópico (`AquecerClienteSns`) |
+
+- Nenhuma chamada grava item, publica mensagem ou cria objeto, e nenhuma devolve descrição ou nota. As permissões novas são só de leitura e apontam para recursos com o sufixo do ambiente.
+- Cada cliente aquecido grava uma linha INFO `Cliente aquecido`, com serviço, operação e duração, no grupo de log da função, no momento em que a versão é publicada.
+- Se uma chamada falhar, a função grava WARN `Falha no aquecimento`, só com serviço, classe e código do erro, e segue. A publicação da versão não é interrompida.
+- O SNS só aceita o `GetTopicAttributes` porque o boundary das funções passou a liberar essa ação (veja [Atualizar o bootstrap depois](#atualizar-o-bootstrap-depois)). Sem isso, o deploy passaria do mesmo jeito, e o aquecimento do SNS ficaria só no WARN.
+
+Para conferir o aquecimento depois do deploy, procure as linhas no grupo de log de cada função. Com o relatório, devem aparecer três linhas por versão publicada:
+
+```bash
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/feedback-registrar-avaliacao-dev \
+  --filter-pattern '"Cliente aquecido"' \
+  --start-time $(( ($(date +%s) - 3600) * 1000 )) \
+  --query "events[].message" \
+  --region sa-east-1
+```
+
+O efeito da memória e do aquecimento na primeira chamada depois da restauração ainda não foi medido. Ele será medido em dev, em ao menos duas restaurações por função, e comparado com a meta de metade do tempo máximo de cada cliente: 4 s no registro, 2,5 s na notificação e 5 s no relatório. A meta é referência e não reprova a entrega. Os valores vão para `openspec/changes/add-observabilidade-seguranca/qa.md`. Como memória e aquecimento entram no mesmo deploy, a medição mostra o efeito somado dos dois.
 
 ## Reprocessamento do aviso crítico e limpeza do bucket
 
@@ -437,6 +485,191 @@ O bucket é privado, então a credencial usada precisa de `s3:GetObject`. A role
 
 Os objetos em `relatorios/` também impedem a exclusão do bucket. Siga o passo em [Esvaziar o bucket antes de `sam delete`](#esvaziar-o-bucket-antes-de-sam-delete), e baixe antes os relatórios que quiser guardar.
 
+## Monitoramento e alarmes
+
+Esta seção descreve o que está declarado no `template.yaml`, validado com `sam validate --lint`. Nada daqui foi implantado ainda. O que depende da stack, como o e-mail recebido, o tempo até o alarme disparar e o dashboard com dados, será confirmado no QA de dev e registrado em `openspec/changes/add-observabilidade-seguranca/qa.md`.
+
+Cada stack cria os recursos abaixo, todos com o sufixo do ambiente:
+
+| Recurso | Nome | Output da stack |
+|---|---|---|
+| Tópico de alarmes | `feedback-alarmes-<ambiente>` | `TopicoAlarmesArn` |
+| Assinatura por e-mail | para o endereço do secret `EMAIL_ADMIN` | |
+| Filtros de métrica | `feedback-falhas-<função>-<ambiente>`, um por grupo de log | |
+| Alarmes | `feedback-falha-<função>-<ambiente>`, um por função | |
+| Dashboard | `feedback-painel-<ambiente>` | `PainelNome` |
+
+### Tópico de alarmes e confirmação da assinatura
+
+Os alarmes publicam em um tópico próprio, separado do tópico de administradores. O CloudWatch não consegue publicar em tópico criptografado com a chave `alias/aws/sns`, que é a do tópico de administradores. Por isso o tópico de alarmes fica sem criptografia em repouso. A mensagem de alarme traz nome, estado, motivo, métrica e limiar, e nenhum dado do aluno, porque a métrica é só uma contagem de linhas de log.
+
+A política do tópico tem duas regras:
+
+- `NegaAcessoSemTls`: nega a qualquer principal as 11 ações válidas em política de tópico quando a requisição não usa TLS. A lista é explícita porque a referência do SNS não documenta curinga nesse tipo de política.
+- `PublicacaoPelosAlarmesDoAmbiente`: libera `sns:Publish` só para o CloudWatch da própria conta, e só para alarmes com nome `feedback-*-<ambiente>`. Um alarme de hml não publica no tópico de dev.
+
+A assinatura usa o mesmo e-mail do tópico de administradores, sem secret novo no GitHub. **Ela precisa ser confirmada em cada ambiente.** No primeiro deploy de cada stack, o SNS manda um e-mail de confirmação para o endereço de `EMAIL_ADMIN`. Até alguém clicar no link, os alarmes publicam e ninguém recebe. Para conferir, use o ARN do output `TopicoAlarmesArn`:
+
+```bash
+aws sns list-subscriptions-by-topic \
+  --topic-arn "<ARN_DO_TOPICO_DE_ALARMES>" \
+  --query "Subscriptions[].SubscriptionArn" \
+  --region sa-east-1
+```
+
+Enquanto não houver confirmação, o valor é `PendingConfirmation`. Depois, vem o ARN da assinatura. Repita em `hml` e `prod` quando cada stack for implantada.
+
+### O que cada alarme cobre
+
+Cada função tem um filtro de métrica no próprio grupo de log, com o mesmo padrão nas três:
+
+```
+?FALHA_FUNCAO ?"Task timed out" ?"Status: timeout"
+```
+
+O filtro publica 1 na métrica `Falhas<Função>` a cada linha que casa. Os handlers gravam o campo `"alarme":"FALHA_FUNCAO"` nas linhas que representam falha da função. As outras duas expressões pegam o tempo esgotado, que encerra a invocação antes de qualquer `catch`.
+
+| Função | Dispara o alarme | Não dispara |
+|---|---|---|
+| `registrar-avaliacao` | Falha ao gravar, respondida com 500 (`Falha ao registrar avaliação`) | Requisição rejeitada com 400 |
+| `notificar-critica` | Falha ao publicar o aviso, inclusive quando só parte do lote falha e a invocação termina sem erro; item crítico descartado por falta de campo obrigatório | Lote publicado com sucesso; registro ignorado por não ser criação de item crítico |
+| `gerar-relatorio-semanal` | Falha na leitura, na gravação ou na publicação (`Falha ao gerar relatório`) | Data de referência rejeitada no acionamento manual, apesar de ser registrada em ERROR |
+| as três | `Error` que escapa do handler, como `NoClassDefFoundError` (`Erro na execução da função`), e tempo esgotado | Falha no aquecimento, que acontece no deploy; período sem invocação |
+
+Configuração dos três alarmes:
+
+| Propriedade | Valor | Efeito |
+|---|---|---|
+| Estatística e limiar | `Sum` maior ou igual a 1 | Uma falha basta |
+| `Period` | 60 segundos | Resolução padrão, dentro do nível gratuito |
+| `EvaluationPeriods` e `DatapointsToAlarm` | 5 e 1 | Uma falha em qualquer minuto de uma janela de 5 minutos. A janela absorve o atraso entre a linha de log e o ponto da métrica |
+| `TreatMissingData` | `notBreaching` | Minuto sem dado conta como sem falha. Sem tráfego, o alarme fica em OK |
+| `AlarmActions` | só o tópico de alarmes do ambiente | Nenhum alarme publica no tópico de administradores. Não há aviso de volta a OK |
+
+O alarme volta a OK sozinho cerca de 5 minutos depois da última falha, e cada novo episódio gera um novo e-mail.
+
+Limites conhecidos:
+
+- A busca é por trecho de texto. Qualquer linha futura que contenha `FALHA_FUNCAO` ou `Task timed out` dispara o alarme. Os testes de log dos handlers afirmam em quais linhas o marcador aparece, e nenhum texto do aluno vai para log.
+- O texto exato da linha de tempo esgotado do runtime `java25` não foi observado, porque o tempo esgotado não foi provocado nas funções. O padrão cobre os dois formatos documentados pelo material de suporte da AWS.
+- Invocação sem falha não grava mais linha em WARN. A notificação deixou de gravar `No metrics were emitted` em cada execução bem-sucedida. Nenhum alarme usa WARN como condição.
+
+### Métricas por ambiente
+
+O `Globals` define `POWERTOOLS_METRICS_NAMESPACE` como `FeedbackServerless/<ambiente>`. As métricas do Powertools e as três métricas dos filtros ficam no namespace do ambiente, e um alarme de prod não reage a uma falha de dev. Antes, as métricas iam todas para `FeedbackServerless`, igual nos três ambientes. As que ficaram nesse namespace antigo param de receber dado.
+
+| Origem | Métricas |
+|---|---|
+| Filtros de log | `FalhasRegistrarAvaliacao`, `FalhasNotificarCritica`, `FalhasGerarRelatorioSemanal` |
+| Powertools, registro | `AvaliacaoRegistrada`, `EntradaRejeitada`, `ErroInterno` |
+| Powertools, notificação | `ItemInvalido` |
+| Powertools, relatório | `RelatorioGerado`, `DataReferenciaRejeitada`, `ErroInterno` |
+
+### Dashboard
+
+O dashboard `feedback-painel-<ambiente>` fica no console do CloudWatch, em `sa-east-1`, em Dashboards. Ele tem cinco widgets:
+
+| Widget | Fonte |
+|---|---|
+| Alarmes de falha | Estado atual dos três alarmes do ambiente |
+| Invocações | `AWS/Lambda` `Invocations` das três funções, soma a cada 5 minutos |
+| Falhas, tratadas e de execução | As três métricas dos filtros, soma por minuto |
+| Duração (ms) | `AWS/Lambda` `Duration` das três funções, média e máximo a cada 5 minutos |
+| Restaurações do SnapStart | Consulta do Logs Insights nas linhas `RESTORE_REPORT` dos três grupos de log, com a função e a duração da restauração |
+
+A duração da restauração vem do log porque não existe métrica do CloudWatch para ela, e a métrica `ColdStart` do Powertools não sai com SnapStart. A consulta lê só as linhas `RESTORE_REPORT`, e os outros widgets são contagens e durações, então o dashboard não mostra descrição, nota nem corpo de mensagem. A consulta roda a cada abertura do dashboard e consome a cota gratuita de dados lidos do Logs Insights. Na conferência feita durante o design, sobre três dias de log de dev, ela leu 155 KB.
+
+### Retenção dos logs
+
+| Ambiente | Retenção dos grupos de log das funções |
+|---|---|
+| `dev` | 14 dias |
+| `hml` | 14 dias |
+| `prod` | 30 dias |
+
+O valor vem de `!If [EhProd, 30, 14]`, a mesma condição que já liga a recuperação pontual da tabela só em prod. Prod guarda mais histórico para investigação. Dev recebe as linhas de teste dos alarmes e não precisa guardar mais.
+
+### Limite do nível gratuito
+
+O nível gratuito do CloudWatch cobre 10 métricas de alarme e 3 dashboards. A conta fecha nesses números sem folga:
+
+| Recurso | Por stack | Dev, hml e prod | Já existe na conta | Total |
+|---|---|---|---|---|
+| Métricas de alarme | 3 | 9 | 1, o alarme de cobrança em `us-east-1` | 10 de 10 |
+| Dashboards | 1 | 3 | 0 | 3 de 3 |
+
+A página de preços não diz se o limite é por região ou por conta, então a conta é feita no pior caso, somando o alarme de cobrança de `us-east-1`. Daí as regras:
+
+- **Não crie alarme de teste**, nem temporário, e nenhum dashboard a mais. Para testar, use os alarmes que já existem, como mostrado abaixo.
+- Não troque a métrica de um alarme por matemática de métricas nem por consulta Metrics Insights. A primeira cobra cada métrica da expressão, e a segunda sai do nível gratuito.
+- Não use período abaixo de 60 segundos, que é alta resolução e também sai do nível gratuito.
+- As stacks de hml e prod são removidas depois do vídeo.
+
+### Testar um alarme
+
+Há dois testes, e nenhum deles altera o `$LATEST`, a configuração ou o código das funções. **Os dois geram e-mail real** para o endereço assinante, um por alarme que entrar em ALARM. Os comandos foram escritos para o Git Bash. Acrescente `--profile tc4-admin` se a sua credencial padrão não for dessa conta. As roles de deploy não têm essas permissões.
+
+Para acompanhar o estado dos três alarmes de um ambiente:
+
+```bash
+aws cloudwatch describe-alarms \
+  --alarm-names feedback-falha-registrar-avaliacao-dev feedback-falha-notificar-critica-dev feedback-falha-gerar-relatorio-semanal-dev \
+  --query "MetricAlarms[].[AlarmName,StateValue]" \
+  --output table \
+  --region sa-east-1
+```
+
+**1. Caminho do alarme até o e-mail, com `set-alarm-state`.** Força o estado do alarme, sem passar pela métrica. Prova a ação do alarme, a política do tópico e a assinatura:
+
+```bash
+aws cloudwatch set-alarm-state \
+  --alarm-name feedback-falha-registrar-avaliacao-dev \
+  --state-value ALARM \
+  --state-reason "Teste manual do caminho do alarme ate o e-mail" \
+  --region sa-east-1
+```
+
+Na avaliação seguinte, cerca de um minuto depois, o alarme recalcula a partir da métrica. Sem falha na janela, volta a OK sozinho.
+
+**2. Caminho da linha de log até o alarme, com `put-log-events`.** Grava uma linha que casa com o filtro num log stream de teste dentro do grupo da função. O filtro vale para todos os streams do grupo, então a linha percorre o mesmo caminho de uma falha real: filtro, métrica, alarme e e-mail.
+
+Rode a partir de uma pasta fora do repositório, porque o arquivo de evento fica nela. O exemplo usa o grupo do registro em dev. Para as outras funções, troque o nome do grupo; para outros ambientes, troque o sufixo.
+
+```bash
+GRUPO=/aws/lambda/feedback-registrar-avaliacao-dev
+STREAM=qa-observabilidade-$(date +%Y%m%d)
+
+aws logs create-log-stream \
+  --log-group-name "$GRUPO" \
+  --log-stream-name "$STREAM" \
+  --region sa-east-1
+
+AGORA=$(( $(date +%s) * 1000 ))
+
+cat > evento-alarme.json <<EOF
+[
+  {
+    "timestamp": $AGORA,
+    "message": "{\"level\":\"ERROR\",\"message\":\"Teste de alarme\",\"function_request_id\":\"qa-observabilidade-manual\",\"alarme\":\"FALHA_FUNCAO\"}"
+  }
+]
+EOF
+
+aws logs put-log-events \
+  --log-group-name "$GRUPO" \
+  --log-stream-name "$STREAM" \
+  --log-events file://evento-alarme.json \
+  --region sa-east-1
+```
+
+- Se o stream do dia já existir, o `create-log-stream` falha com `ResourceAlreadyExistsException`. Siga direto para o `put-log-events`.
+- O `timestamp` precisa ser o horário atual, em milissegundos. Uma linha com horário antigo cai fora da janela de 5 minutos e não dispara. Uma com horário futuro deixa o alarme em ALARM até aquele horário.
+- A linha não pode ter descrição, nota nem corpo de mensagem. O `function_request_id` com o nome do teste identifica a linha para quem ler o grupo depois.
+- Para testar o caminho do tempo esgotado, troque `message` por uma linha de texto com `Task timed out`, como `qa-observabilidade-manual Task timed out after 10.01 seconds`.
+- Grave uma linha por vez e espere os alarmes voltarem a OK antes do próximo teste, cerca de 5 minutos depois do último ponto.
+- A linha aparece também no widget de falhas do dashboard, no minuto em que foi gravada.
+- **O stream de teste não é apagado.** Ele expira junto com a retenção do grupo: 14 dias em dev e hml, 30 em prod. Apague o arquivo `evento-alarme.json` ao terminar.
+
 ## Bootstrap da conta AWS
 
 O template `infra/bootstrap/github-oidc.yaml` cria o provedor OIDC do GitHub e uma role de deploy por ambiente. Ele é aplicado uma vez, com credencial administrativa, e fica fora do pipeline de propósito: assim o pipeline não consegue alterar as próprias permissões.
@@ -529,7 +762,7 @@ Cada ambiente precisa de duas configurações. Nenhuma delas vai para arquivo ve
 | Nome | Tipo | Valor |
 |---|---|---|
 | `AWS_ROLE_ARN` | variável | ARN da role do ambiente, obtido no passo 3 |
-| `EMAIL_ADMIN` | secret | E-mail que assina o tópico SNS do ambiente |
+| `EMAIL_ADMIN` | secret | E-mail que assina os tópicos de administradores e de alarmes do ambiente |
 
 Sem `EMAIL_ADMIN`, o job de deploy falha antes de chamar o `sam deploy`, com uma mensagem indicando o secret ausente.
 
@@ -578,6 +811,8 @@ aws cloudformation execute-change-set \
   --region sa-east-1 \
   --profile tc4-admin
 ```
+
+**Atualização de 06/11/2026: leitura de tópico no boundary.** O aquecimento das funções chama `sns:GetTopicAttributes` no tópico de administradores, e o boundary só liberava `sns:Publish`. O statement `PublicarNoTopico` do boundary `feedback-limite-funcoes-<ambiente>` virou `TopicosDoAmbiente`, com `sns:GetTopicAttributes` e `sns:Publish` nos mesmos tópicos do ambiente. Nada mudou nas políticas das roles de deploy. A atualização seguiu este procedimento: o change set trouxe só os três boundaries como `Modify`, sem substituição, e a stack terminou em `UPDATE_COMPLETE`. A versão v2 dos três boundaries foi conferida com `aws iam get-policy-version`.
 
 ### Regras que os próximos templates precisam seguir
 

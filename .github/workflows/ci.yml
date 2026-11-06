@@ -27,12 +27,17 @@ jobs:
           java-version: "25"
           cache: maven
 
-      - name: Build e testes
-        run: mvn -B verify
+      # install, e não verify: o sam build resolve o módulo dominio pelo repositório Maven local.
+      - name: Build, testes e install no repositório Maven local
+        run: mvn -B install
 
       - uses: aws-actions/setup-sam@v3
         with:
           use-installer: true
+
+      # Não chama a AWS: o CI continua sem credencial. Pega no PR o erro de empacotamento.
+      - name: Empacotar as funções
+        run: sam build
 
       - name: Validar template da aplicação
         run: sam validate --lint --region sa-east-1

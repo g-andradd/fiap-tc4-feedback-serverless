@@ -12,6 +12,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
+import org.crac.Core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
@@ -36,6 +37,11 @@ import software.amazon.lambda.powertools.tracing.TracingUtils;
  * <p>Toda falha é registrada e relançada, para a invocação terminar com {@code FunctionError}. A
  * exceção relançada tem mensagem fixa, e exceção do SDK é registrada só pela classe, código de erro e
  * ID da requisição. Descrição, nota individual e média não vão para log, em nível nenhum.
+ *
+ * <p>As linhas que representam execução com falha levam o campo {@code alarme} com o valor
+ * {@code FALHA_FUNCAO}, que o filtro de métrica do alarme de falha procura: a falha na leitura,
+ * na gravação ou na publicação e o {@code Error} que escapa da invocação. A data de referência
+ * rejeitada não leva o marcador, porque não é falha da função.
  */
 public class GerarRelatorioSemanalHandler implements RequestHandler<Map<String, Object>, Map<String, Object>> {
 
@@ -52,6 +58,8 @@ public class GerarRelatorioSemanalHandler implements RequestHandler<Map<String, 
     private static final String METRICA_REJEITADA = "DataReferenciaRejeitada";
     private static final String METRICA_ERRO_INTERNO = "ErroInterno";
     private static final String DESCONHECIDO = "desconhecido";
+    private static final String CAMPO_ALARME = "alarme";
+    private static final String MARCADOR_ALARME = "FALHA_FUNCAO";
 
     // Sem paginação extra são 9 chamadas, que somam 90 s no pior caso, abaixo do Timeout de 120 s da
     // função. O SDK precisa desistir antes, senão o Lambda encerra a invocação sem passar pelo catch.
@@ -61,17 +69,32 @@ public class GerarRelatorioSemanalHandler implements RequestHandler<Map<String, 
      * Recursos de produção. A classe só é carregada pelo construtor público, que o runtime chama na
      * inicialização, então eles entram no snapshot do SnapStart. Os testes usam o outro construtor e
      * não dependem de região, credenciais nem rede. Criar os clientes não chama a AWS.
+     *
+     * <p>Os clientes ficam em campos próprios porque o gerador e o aquecimento usam as mesmas
+     * instâncias. O contexto do CRaC guarda só referência fraca, por isso o aquecimento também fica
+     * num campo estático.
      */
     private static final class Recursos {
+        static final DynamoDbClient DYNAMO = criarCliente(DynamoDbClient.builder());
+        static final S3Client S3 = criarCliente(S3Client.builder());
+        static final SnsClient SNS = criarCliente(SnsClient.builder());
+        static final String TABELA = variavel("TABELA_AVALIACOES");
+        static final String BUCKET = variavel("BUCKET_RELATORIOS");
+        static final String TOPICO = variavel("TOPICO_ADMINS_ARN");
         static final GeradorRelatorio GERADOR = new GeradorRelatorio(
-                new LeitorAvaliacoes(criarCliente(DynamoDbClient.builder()), variavel("TABELA_AVALIACOES")),
-                criarCliente(S3Client.builder()),
-                criarCliente(SnsClient.builder()),
+                new LeitorAvaliacoes(DYNAMO, TABELA),
+                S3,
+                SNS,
                 variavel("AMBIENTE"),
-                variavel("BUCKET_RELATORIOS"),
-                variavel("TOPICO_ADMINS_ARN"),
+                BUCKET,
+                TOPICO,
                 Rastreador.XRAY);
         static final Metrics METRICAS = MetricsBuilder.builder().build();
+        static final Aquecimento AQUECIMENTO = new Aquecimento(DYNAMO, TABELA, S3, BUCKET, SNS, TOPICO);
+
+        static {
+            Core.getGlobalContext().register(AQUECIMENTO);
+        }
 
         private static String variavel(String nome) {
             return Objects.requireNonNull(System.getenv(nome), "Variável " + nome + " não definida.");
@@ -112,15 +135,28 @@ public class GerarRelatorioSemanalHandler implements RequestHandler<Map<String, 
      */
     @Override
     public Map<String, Object> handleRequest(Map<String, Object> evento, Context contexto) {
-        // Antes do withLogging, que marca o fim do cold start no estado global do Powertools.
-        emitirMetrica(() -> metricas.captureColdStartMetric(contexto));
-        return PowertoolsLogging.withLogging(contexto, () -> {
-            try {
-                return processar(evento);
-            } finally {
-                emitirMetrica(metricas::flush);
-            }
-        });
+        try {
+            // Antes do withLogging, que marca o fim do cold start no estado global do Powertools.
+            emitirMetrica(() -> metricas.captureColdStartMetric(contexto));
+            return PowertoolsLogging.withLogging(contexto, () -> {
+                try {
+                    return processar(evento);
+                } finally {
+                    emitirMetrica(metricas::flush);
+                }
+            });
+        } catch (Error e) {
+            registrarErro(e);
+            throw e;
+        }
+    }
+
+    // Um Error, como NoClassDefFoundError ou OutOfMemoryError, passa pelos catch de RuntimeException
+    // e terminaria a invocação sem marcador. Só a classe vai para o log; quem chama recebe o mesmo Error.
+    private static void registrarErro(Error e) {
+        LOG.error("Erro na execução da função",
+                entry("classe", e.getClass().getName()),
+                entry(CAMPO_ALARME, MARCADOR_ALARME));
     }
 
     private Map<String, Object> processar(Map<String, Object> evento) {
@@ -164,7 +200,8 @@ public class GerarRelatorioSemanalHandler implements RequestHandler<Map<String, 
         LOG.error("Falha ao gerar relatório",
                 entry("classe", e.getClass().getName()),
                 entry("codigoErro", codigoErro),
-                entry("idRequisicao", idRequisicao));
+                entry("idRequisicao", idRequisicao),
+                entry(CAMPO_ALARME, MARCADOR_ALARME));
     }
 
     private void contar(String metrica) {

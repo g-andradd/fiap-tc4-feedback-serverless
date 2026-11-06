@@ -1,8 +1,17 @@
 package br.com.fiap.feedback.relatorio;
 
+import static br.com.fiap.feedback.relatorio.ApoioTeste.BUCKET;
+import static br.com.fiap.feedback.relatorio.ApoioTeste.SEGUNDA_08H;
+import static br.com.fiap.feedback.relatorio.ApoioTeste.TABELA;
+import static br.com.fiap.feedback.relatorio.ApoioTeste.TOPICO;
+import static br.com.fiap.feedback.relatorio.ApoioTeste.contexto;
 import static br.com.fiap.feedback.relatorio.ApoioTeste.item;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import br.com.fiap.feedback.dominio.DataReferenciaInvalidaException;
 import br.com.fiap.feedback.relatorio.ApoioTeste.Cenario;
@@ -12,9 +21,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -29,10 +41,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.sns.model.SnsException;
@@ -45,6 +62,8 @@ class LogsGerarRelatorioSemanalTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String MARCADOR = "TEXTO-MARCADOR-LOG";
+    // O filtro de métrica busca por substring, por isso a ausência é conferida no texto da linha.
+    private static final String MARCADOR_ALARME = "FALHA_FUNCAO";
 
     private AppenderEmMemoria appender;
     private Level nivelOriginal;
@@ -90,6 +109,20 @@ class LogsGerarRelatorioSemanalTest {
                 .filter(log -> nivel.equals(log.get("level").textValue()))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private List<JsonNode> linhasComMarcadorDeAlarme() throws IOException {
+        return logsEmJson().stream().filter(log -> log.toString().contains(MARCADOR_ALARME)).toList();
+    }
+
+    private void assertSemMarcadorDeAlarme() {
+        assertThat(appender.linhas).isNotEmpty();
+        assertThat(String.join("\n", appender.linhas)).doesNotContain(MARCADOR_ALARME);
+    }
+
+    private static void assertComMarcadorDeAlarme(JsonNode log) {
+        assertThat(log.get("level").textValue()).isEqualTo("ERROR");
+        assertThat(log.get("alarme").textValue()).isEqualTo(MARCADOR_ALARME);
     }
 
     /** Campos que variam entre execuções iguais, fora do que o handler registra. */
@@ -280,6 +313,95 @@ class LogsGerarRelatorioSemanalTest {
 
         assertSemDadoDoAluno();
         assertThat(logDeNivel("ERROR").get("message").textValue()).isEqualTo("Data de referência rejeitada");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"leitura", "gravação", "publicação"})
+    @DisplayName("Execução com falha grava uma única linha com o marcador de alarme, a da falha")
+    void falhaComMarcador(String etapa) throws Exception {
+        comAvaliacoes(cenario, 4, 6);
+        switch (etapa) {
+            case "leitura" -> cenario.dynamo.falharEm(
+                    "2026-11-05", 0, DynamoDbException.builder().message("falha").statusCode(500).build());
+            case "gravação" -> cenario.s3.falha = S3Exception.builder().message("negado").statusCode(403).build();
+            case "publicação" -> cenario.sns.falha = SnsException.builder().message("negado").statusCode(403).build();
+            default -> throw new IllegalArgumentException(etapa);
+        }
+
+        assertThatThrownBy(cenario::executarNaSegunda).isInstanceOf(GeracaoRelatorioException.class);
+
+        assertSemDadoDoAluno();
+        List<JsonNode> marcadas = linhasComMarcadorDeAlarme();
+        assertThat(marcadas).hasSize(1);
+        assertComMarcadorDeAlarme(marcadas.getFirst());
+        assertThat(marcadas.getFirst().get("message").textValue()).isEqualTo("Falha ao gerar relatório");
+    }
+
+    @Test
+    @DisplayName("Item inválido: só a linha da execução com falha leva o marcador")
+    void itemInvalidoMarcaSoAExecucao() throws Exception {
+        var invalido = item("id-invalido", MARCADOR, 5, "MEDIA", "2026-11-05");
+        invalido.remove("nota");
+        cenario.dynamo.adicionar(invalido);
+
+        assertThatThrownBy(cenario::executarNaSegunda).isInstanceOf(GeracaoRelatorioException.class);
+
+        assertThat(logsEmJson()).extracting(log -> log.get("message").textValue())
+                .containsExactly("Item de avaliação inválido", "Falha ao gerar relatório");
+        assertThat(linhasComMarcadorDeAlarme())
+                .extracting(log -> log.get("message").textValue())
+                .containsExactly("Falha ao gerar relatório");
+    }
+
+    @Test
+    @DisplayName("Data de referência 2026-02-30 é rejeitada sem o marcador de alarme")
+    void dataRejeitadaSemMarcador() throws Exception {
+        assertThatThrownBy(() -> cenario.executarPara("2026-02-30"))
+                .isInstanceOf(DataReferenciaInvalidaException.class);
+
+        assertSemMarcadorDeAlarme();
+        assertThat(logDeNivel("ERROR").get("message").textValue()).isEqualTo("Data de referência rejeitada");
+        assertThat(logDeNivel("ERROR").has("alarme")).isFalse();
+    }
+
+    @Test
+    @DisplayName("Relatório gerado e avisado com sucesso não grava linha em WARN ou ERROR nem o marcador")
+    void sucessoSemWarnNemMarcador() throws Exception {
+        comAvaliacoes(cenario, 4, 6);
+
+        cenario.executarNaSegunda();
+
+        assertThat(cenario.sns.publicacoes).hasSize(1);
+        assertThat(logsEmJson())
+                .extracting(log -> log.get("level").textValue())
+                .isNotEmpty()
+                .doesNotContain("WARN", "ERROR");
+        assertSemMarcadorDeAlarme();
+    }
+
+    @Test
+    @DisplayName("Error que escapa da invocação é registrado só pela classe, com o marcador, e relançado")
+    void errorEscapadoComMarcador() throws Exception {
+        comAvaliacoes(cenario, 4, 6);
+        NoClassDefFoundError erro = new NoClassDefFoundError("classe/" + MARCADOR);
+        S3Client s3 = mock(S3Client.class);
+        when(s3.putObject(any(PutObjectRequest.class), any(RequestBody.class))).thenThrow(erro);
+        GeradorRelatorio gerador = new GeradorRelatorio(
+                new LeitorAvaliacoes(cenario.dynamo, TABELA), s3, cenario.sns, "dev", BUCKET, TOPICO, cenario.rastreador);
+        GerarRelatorioSemanalHandler handler = new GerarRelatorioSemanalHandler(
+                gerador, Clock.fixed(SEGUNDA_08H, ZoneOffset.UTC), cenario.metricas);
+
+        assertThatThrownBy(() -> handler.handleRequest(Map.of(), contexto())).isSameAs(erro);
+
+        assertSemDadoDoAluno();
+        List<JsonNode> logs = logsEmJson();
+        assertThat(logs).hasSize(1);
+        JsonNode log = logs.getFirst();
+        assertComMarcadorDeAlarme(log);
+        assertThat(log.get("message").textValue()).isEqualTo("Erro na execução da função");
+        assertThat(log.get("classe").textValue()).isEqualTo(NoClassDefFoundError.class.getName());
+        assertThat(cenario.sns.publicacoes).isEmpty();
+        verify(cenario.metricas).flush();
     }
 
     // Prova de que a captura enxerga todos os níveis e o texto de exceções. Sem isso, as verificações

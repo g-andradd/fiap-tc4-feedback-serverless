@@ -23,6 +23,7 @@ A sessão principal atua como orquestradora. Ela não implementa sozinha: distri
 3. **Commits:** Conventional Commits em português, sem `Co-Authored-By` e sem qualquer assinatura de agente.
 4. **Escopo:** prazo de 13/11/2026. O que não estiver no enunciado ou no change aprovado fica de fora. Na dúvida, pergunte.
 5. **Escrita:** português do Brasil, sem travessão (—), texto direto e humano.
+6. **Divergência:** quando discordar de uma instrução do Gabriel ou enxergar um caminho melhor, diga antes, explique o motivo e espere a decisão dele. Nunca troque o caminho por conta própria, nem com simulação ou evidência a favor. Exemplo: em 05/11/2026 os comandos do relatório trouxeram `git merge -X ours` depois de ele ter pedido para não usar.
 
 ## Autorizações do Gabriel (03/11/2026)
 

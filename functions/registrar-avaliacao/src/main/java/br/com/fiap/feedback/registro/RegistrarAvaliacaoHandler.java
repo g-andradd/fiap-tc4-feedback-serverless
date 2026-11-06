@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.crac.Core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
@@ -40,6 +41,10 @@ import software.amazon.lambda.powertools.tracing.TracingUtils;
  *
  * <p>Descrição, nota e corpo bruto não vão para log nem para trace, em nível nenhum. Exceção do
  * Jackson é registrada só pela classe, e a do SDK pela classe, código de erro e ID da requisição.
+ *
+ * <p>As linhas que representam falha da função levam o campo {@code alarme} com o valor
+ * {@code FALHA_FUNCAO}, que o filtro de métrica do alarme de falha procura: a resposta 500 e o
+ * {@code Error} que escapa da invocação. Entrada rejeitada com 400 não leva o marcador.
  */
 public class RegistrarAvaliacaoHandler
         implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
@@ -56,6 +61,8 @@ public class RegistrarAvaliacaoHandler
     private static final String METRICA_REJEITADA = "EntradaRejeitada";
     private static final String METRICA_ERRO_INTERNO = "ErroInterno";
     private static final String DESCONHECIDO = "desconhecido";
+    private static final String CAMPO_ALARME = "alarme";
+    private static final String MARCADOR_ALARME = "FALHA_FUNCAO";
 
     // Abaixo do Timeout de 10 s da função: o SDK precisa desistir antes, senão o Lambda encerra a
     // invocação sem passar pelo catch e o cliente não recebe o 500 genérico.
@@ -65,12 +72,20 @@ public class RegistrarAvaliacaoHandler
      * Recursos de produção. A classe só é carregada pelo construtor público, que o runtime chama na
      * inicialização, então eles entram no snapshot do SnapStart. Os testes usam o outro construtor e
      * não dependem de região, credenciais nem rede. Criar o cliente não chama a AWS.
+     *
+     * <p>O aquecimento usa a mesma instância de cliente do handler. O contexto do CRaC guarda só
+     * referência fraca, por isso a instância fica neste campo estático.
      */
     private static final class Recursos {
         static final DynamoDbClient CLIENTE = criarCliente(DynamoDbClient.builder());
         static final String TABELA = Objects.requireNonNull(
                 System.getenv("TABELA_AVALIACOES"), "Variável TABELA_AVALIACOES não definida.");
         static final Metrics METRICAS = MetricsBuilder.builder().build();
+        static final Aquecimento AQUECIMENTO = new Aquecimento(CLIENTE, TABELA);
+
+        static {
+            Core.getGlobalContext().register(AQUECIMENTO);
+        }
     }
 
     private final DynamoDbClient cliente;
@@ -109,15 +124,28 @@ public class RegistrarAvaliacaoHandler
      */
     @Override
     public APIGatewayV2HTTPResponse handleRequest(APIGatewayV2HTTPEvent evento, Context contexto) {
-        // Antes do withLogging, que marca o fim do cold start no estado global do Powertools.
-        emitirMetrica(() -> metricas.captureColdStartMetric(contexto));
-        return PowertoolsLogging.withLogging(contexto, () -> {
-            try {
-                return processar(evento);
-            } finally {
-                emitirMetrica(metricas::flush);
-            }
-        });
+        try {
+            // Antes do withLogging, que marca o fim do cold start no estado global do Powertools.
+            emitirMetrica(() -> metricas.captureColdStartMetric(contexto));
+            return PowertoolsLogging.withLogging(contexto, () -> {
+                try {
+                    return processar(evento);
+                } finally {
+                    emitirMetrica(metricas::flush);
+                }
+            });
+        } catch (Error e) {
+            registrarErro(e);
+            throw e;
+        }
+    }
+
+    // Um Error, como NoClassDefFoundError ou OutOfMemoryError, passa pelos catch de RuntimeException
+    // e terminaria a invocação sem marcador. Só a classe vai para o log; quem chama recebe o mesmo Error.
+    private static void registrarErro(Error e) {
+        LOG.error("Erro na execução da função",
+                entry("classe", e.getClass().getName()),
+                entry(CAMPO_ALARME, MARCADOR_ALARME));
     }
 
     private APIGatewayV2HTTPResponse processar(APIGatewayV2HTTPEvent evento) {
@@ -183,7 +211,8 @@ public class RegistrarAvaliacaoHandler
         LOG.error("Falha ao registrar avaliação",
                 entry("classe", e.getClass().getName()),
                 entry("codigoErro", codigoErro),
-                entry("idRequisicao", idRequisicao));
+                entry("idRequisicao", idRequisicao),
+                entry(CAMPO_ALARME, MARCADOR_ALARME));
         contar(METRICA_ERRO_INTERNO);
         return Respostas.erroInterno();
     }

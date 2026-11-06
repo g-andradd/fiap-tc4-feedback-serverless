@@ -3,8 +3,10 @@ package br.com.fiap.feedback.registro;
 import static br.com.fiap.feedback.registro.ApoioTeste.contexto;
 import static br.com.fiap.feedback.registro.ApoioTeste.evento;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import br.com.fiap.feedback.registro.ApoioTeste.RastreadorFalso;
@@ -60,8 +62,11 @@ class LogsRegistrarAvaliacaoTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String MARCADOR = "marcador-unico-8f3a";
     private static final String NOTA_INVALIDA = "987654";
+    // O filtro de métrica busca por substring, por isso a ausência é conferida no texto da linha.
+    private static final String MARCADOR_ALARME = "FALHA_FUNCAO";
 
     private DynamoDbClient cliente;
+    private Metrics metricas;
     private RegistrarAvaliacaoHandler handler;
     private AppenderEmMemoria appender;
     private Level nivelOriginal;
@@ -78,11 +83,12 @@ class LogsRegistrarAvaliacaoTest {
         Configurator.setRootLevel(Level.ALL);
 
         cliente = mock(DynamoDbClient.class);
+        metricas = mock(Metrics.class);
         handler = new RegistrarAvaliacaoHandler(
                 cliente,
                 "tabela-teste",
                 Clock.fixed(Instant.parse("2026-11-10T03:00:00Z"), ZoneOffset.UTC),
-                mock(Metrics.class),
+                metricas,
                 new RastreadorFalso());
     }
 
@@ -129,6 +135,23 @@ class LogsRegistrarAvaliacaoTest {
         List<JsonNode> logs = logsEmJson();
         assertThat(logs).hasSize(1);
         return logs.getFirst();
+    }
+
+    private void assertSemMarcadorDeAlarme() {
+        assertThat(appender.linhas).isNotEmpty();
+        assertThat(String.join("\n", appender.linhas)).doesNotContain(MARCADOR_ALARME);
+    }
+
+    private void assertSemWarnNemError() throws IOException {
+        assertThat(logsEmJson())
+                .extracting(log -> log.get("level").textValue())
+                .isNotEmpty()
+                .doesNotContain("WARN", "ERROR");
+    }
+
+    private static void assertComMarcadorDeAlarme(JsonNode log) {
+        assertThat(log.get("level").textValue()).isEqualTo("ERROR");
+        assertThat(log.get("alarme").textValue()).isEqualTo(MARCADOR_ALARME);
     }
 
     @Test
@@ -269,6 +292,7 @@ class LogsRegistrarAvaliacaoTest {
         assertThat(log.get("codigoErro").textValue()).isEqualTo("ValidationException");
         assertThat(log.get("idRequisicao").textValue()).isEqualTo("req-1");
         assertThat(log.has("error")).isFalse();
+        assertComMarcadorDeAlarme(log);
     }
 
     @Test
@@ -295,7 +319,51 @@ class LogsRegistrarAvaliacaoTest {
         assertThat(enviar("{\"descricao\":\"" + MARCADOR + "\",\"nota\":7}").getStatusCode()).isEqualTo(500);
 
         assertSemDadoDoAluno();
-        assertThat(unicoLog().get("classe").textValue()).isEqualTo(SdkClientException.class.getName());
+        JsonNode log = unicoLog();
+        assertThat(log.get("classe").textValue()).isEqualTo(SdkClientException.class.getName());
+        assertComMarcadorDeAlarme(log);
+    }
+
+    @Test
+    @DisplayName("Registro bem-sucedido não grava linha em WARN ou ERROR nem o marcador de alarme")
+    void sucessoSemWarnNemMarcador() throws Exception {
+        assertThat(enviar("{\"descricao\":\"Aula boa\",\"nota\":7}").getStatusCode()).isEqualTo(201);
+
+        assertSemWarnNemError();
+        assertSemMarcadorDeAlarme();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "{\"descricao\":\"\",\"nota\":7}",
+        "{\"descricao\":\"Aula boa\",\"nota\":" + NOTA_INVALIDA + "}",
+        "[1, 2, 3]",
+        "{\"descricao\": \"Aula boa\"",
+        ""
+    })
+    @DisplayName("Entrada rejeitada com 400 não grava o marcador de alarme nem linha em WARN ou ERROR")
+    void rejeicaoSemMarcador(String corpo) throws Exception {
+        assertThat(enviar(corpo).getStatusCode()).isEqualTo(400);
+
+        assertSemWarnNemError();
+        assertSemMarcadorDeAlarme();
+    }
+
+    @Test
+    @DisplayName("Error que escapa da invocação é registrado só pela classe, com o marcador, e relançado")
+    void errorEscapadoComMarcador() throws Exception {
+        NoClassDefFoundError erro = new NoClassDefFoundError("classe/" + MARCADOR + "/" + NOTA_INVALIDA);
+        when(cliente.putItem(any(PutItemRequest.class))).thenThrow(erro);
+
+        assertThatThrownBy(() -> enviar("{\"descricao\":\"" + MARCADOR + "\",\"nota\":7}")).isSameAs(erro);
+
+        assertSemDadoDoAluno();
+        JsonNode log = unicoLog();
+        assertComMarcadorDeAlarme(log);
+        assertThat(log.get("message").textValue()).isEqualTo("Erro na execução da função");
+        assertThat(log.get("classe").textValue()).isEqualTo(NoClassDefFoundError.class.getName());
+        assertThat(log.has("error")).isFalse();
+        verify(metricas).flush();
     }
 
     @Test

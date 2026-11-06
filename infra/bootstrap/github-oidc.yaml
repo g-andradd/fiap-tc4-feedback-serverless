@@ -98,9 +98,11 @@ Resources:
                 Effect: Allow
                 Action: dynamodb:ListStreams
                 Resource: "*"
-              - Sid: PublicarNoTopico
+              - Sid: TopicosDoAmbiente
                 Effect: Allow
-                Action: sns:Publish
+                Action:
+                  - sns:GetTopicAttributes
+                  - sns:Publish
                 Resource:
                   - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:feedback-*-${Ambiente}
                   - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:feedback-${Ambiente}-*

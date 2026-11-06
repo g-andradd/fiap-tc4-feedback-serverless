@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -43,6 +44,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.core.exception.ApiCallTimeoutException;
@@ -472,38 +474,83 @@ class NotificarCriticaHandlerTest {
     class MetricasERastreamento {
 
         @Test
-        @DisplayName("Publicação roda em subsegmento anotado com o id, e as métricas descarregam no fim")
+        @DisplayName("Publicação roda em subsegmento anotado com o id, sem descarregar métrica vazia")
         void sucesso() {
             processar(lote(insercao("100", itemCritico("id-1", "Aula ruim"))));
 
             assertThat(rastreador.subsegmentos).containsExactly("publicarAviso");
             assertThat(rastreador.anotacoes).containsOnly(Map.entry("id", "id-1"));
-            verify(metricas).flush();
+            verify(metricas, never()).flush();
         }
 
         @Test
-        @DisplayName("Falha ao publicar também descarrega as métricas")
-        void falhaDescarrega() {
+        @DisplayName("Lote só com registros ignorados não descarrega métrica vazia")
+        void ignoradoNaoDescarrega() {
+            processar(lote(registro("MODIFY", "100", itemCritico("id-1", "Aula"))));
+            processar(lote());
+            processar(null);
+
+            verify(metricas, never()).flush();
+        }
+
+        @Test
+        @DisplayName("Falha ao publicar não conta métrica, então não descarrega")
+        void falhaNaoDescarrega() {
             when(cliente.publish(any(PublishRequest.class))).thenThrow(FALHA);
 
             processar(lote(insercao("100", itemCritico("id-1", "Aula ruim"))));
 
-            verify(metricas).flush();
+            verify(metricas, never()).flush();
+        }
+
+        @Test
+        @DisplayName("Item descartado conta a métrica e descarrega uma vez no fim da invocação")
+        void descarteDescarrega() {
+            Map<String, AttributeValue> semDescricao = itemCritico("id-1", "ignorada");
+            semDescricao.remove("descricao");
+            Map<String, AttributeValue> semNota = itemCritico("id-2", "ignorada");
+            semNota.remove("nota");
+
+            processar(lote(
+                    insercao("100", semDescricao),
+                    insercao("101", itemCritico("id-3", "Válida")),
+                    insercao("102", semNota)));
+
+            InOrder ordem = inOrder(metricas);
+            ordem.verify(metricas, times(2)).addMetric("ItemInvalido", 1, MetricUnit.COUNT);
+            ordem.verify(metricas).flush();
+        }
+
+        @Test
+        @DisplayName("A contagem não passa de uma invocação para a seguinte")
+        void contagemPorInvocacao() {
+            Map<String, AttributeValue> semDescricao = itemCritico("id-1", "ignorada");
+            semDescricao.remove("descricao");
+
+            processar(lote(insercao("100", semDescricao)));
+            processar(lote(insercao("101", itemCritico("id-2", "Válida"))));
+
+            verify(metricas, times(1)).flush();
         }
 
         @Test
         @DisplayName("Falha ao descarregar métricas não troca a resposta")
         void falhaAoDescarregar() {
             doThrow(new IllegalStateException("flush")).when(metricas).flush();
+            Map<String, AttributeValue> semDescricao = itemCritico("id-1", "ignorada");
+            semDescricao.remove("descricao");
 
-            StreamsEventResponse resposta = processar(lote(insercao("100", itemCritico("id-1", "Aula ruim"))));
+            StreamsEventResponse resposta = processar(lote(
+                    insercao("100", semDescricao),
+                    insercao("101", itemCritico("id-2", "Válida"))));
 
             assertThat(falhas(resposta)).isEmpty();
             assertThat(unicoPublicado()).isNotNull();
+            verify(metricas).flush();
         }
 
         @Test
-        @DisplayName("Falha ao contar item inválido não vira falha do registro")
+        @DisplayName("Falha ao contar item inválido não vira falha do registro nem descarga vazia")
         void falhaAoContar() {
             doThrow(new IllegalStateException("métrica"))
                     .when(metricas).addMetric(eq("ItemInvalido"), anyDouble(), any(MetricUnit.class));
@@ -511,6 +558,7 @@ class NotificarCriticaHandlerTest {
             imagem.remove("descricao");
 
             assertThat(falhas(processar(lote(insercao("100", imagem))))).isEmpty();
+            verify(metricas, never()).flush();
         }
 
         @Test
