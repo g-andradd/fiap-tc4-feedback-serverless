@@ -49,6 +49,11 @@
             <artifactId>aspectjrt</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Aquecimento dos clientes do SDK antes do snapshot do SnapStart. -->
+        <dependency>
+            <groupId>org.crac</groupId>
+            <artifactId>crac</artifactId>
+        </dependency>
 
         <!-- O SDK traz apache5-client por transitividade: excluir só os nomes da documentação não basta. -->
         <dependency>

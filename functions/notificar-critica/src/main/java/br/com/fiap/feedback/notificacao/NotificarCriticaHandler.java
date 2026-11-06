@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.crac.Core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
@@ -47,6 +48,12 @@ import software.amazon.lambda.powertools.tracing.TracingUtils;
  *
  * <p>Dados do aluno não vão para log nem para trace, em nível nenhum. Exceção é registrada só pela
  * classe e, se vier do serviço, pelo código de erro e pelo ID da requisição.
+ *
+ * <p>As linhas que representam falha da função levam o campo {@code alarme} com o valor
+ * {@code FALHA_FUNCAO}, que o filtro de métrica do alarme de falha procura: a falha ao publicar,
+ * inclusive quando só parte do lote falha, o item descartado e o {@code Error} que escapa da
+ * invocação. As métricas só são descarregadas quando a invocação contou alguma, porque o Powertools
+ * grava um WARN a cada descarga vazia.
  */
 public class NotificarCriticaHandler implements RequestHandler<DynamodbEvent, StreamsEventResponse> {
 
@@ -60,6 +67,8 @@ public class NotificarCriticaHandler implements RequestHandler<DynamodbEvent, St
 
     private static final String METRICA_ITEM_INVALIDO = "ItemInvalido";
     private static final String DESCONHECIDO = "desconhecido";
+    private static final String CAMPO_ALARME = "alarme";
+    private static final String MARCADOR_ALARME = "FALHA_FUNCAO";
 
     // Com o Timeout de 30 s da função, uma falha na publicação encerra a tentativa pelo catch, com a
     // sequência informada, em vez de um timeout que derrubaria o lote inteiro.
@@ -69,12 +78,20 @@ public class NotificarCriticaHandler implements RequestHandler<DynamodbEvent, St
      * Recursos de produção. A classe só é carregada pelo construtor público, que o runtime chama na
      * inicialização, então eles entram no snapshot do SnapStart. Os testes usam o outro construtor e
      * não dependem de região, credenciais nem rede. Criar o cliente não chama a AWS.
+     *
+     * <p>O aquecimento usa a mesma instância de cliente do handler. O contexto do CRaC guarda só
+     * referência fraca, por isso a instância fica neste campo estático.
      */
     private static final class Recursos {
         static final SnsClient CLIENTE = criarCliente(SnsClient.builder());
         static final String TOPICO = Objects.requireNonNull(
                 System.getenv("TOPICO_ADMINS_ARN"), "Variável TOPICO_ADMINS_ARN não definida.");
         static final Metrics METRICAS = MetricsBuilder.builder().build();
+        static final Aquecimento AQUECIMENTO = new Aquecimento(CLIENTE, TOPICO);
+
+        static {
+            Core.getGlobalContext().register(AQUECIMENTO);
+        }
     }
 
     private final SnsClient cliente;
@@ -110,21 +127,35 @@ public class NotificarCriticaHandler implements RequestHandler<DynamodbEvent, St
      */
     @Override
     public StreamsEventResponse handleRequest(DynamodbEvent evento, Context contexto) {
-        // Antes do withLogging, que marca o fim do cold start no estado global do Powertools.
-        emitirMetrica(() -> metricas.captureColdStartMetric(contexto));
-        return PowertoolsLogging.withLogging(contexto, () -> {
-            try {
-                return processar(evento);
-            } finally {
-                emitirMetrica(metricas::flush);
-            }
-        });
+        try {
+            // Antes do withLogging, que marca o fim do cold start no estado global do Powertools.
+            emitirMetrica(() -> metricas.captureColdStartMetric(contexto));
+            return PowertoolsLogging.withLogging(contexto, () -> {
+                Contagem contagem = new Contagem();
+                try {
+                    return processar(evento, contagem);
+                } finally {
+                    contagem.descarregar();
+                }
+            });
+        } catch (Error e) {
+            registrarErro(e);
+            throw e;
+        }
     }
 
-    private StreamsEventResponse processar(DynamodbEvent evento) {
+    // Um Error, como NoClassDefFoundError ou OutOfMemoryError, passa pelos catch de RuntimeException
+    // e terminaria a invocação sem marcador. Só a classe vai para o log; quem chama recebe o mesmo Error.
+    private static void registrarErro(Error e) {
+        LOG.error("Erro na execução da função",
+                entry("classe", e.getClass().getName()),
+                entry(CAMPO_ALARME, MARCADOR_ALARME));
+    }
+
+    private StreamsEventResponse processar(DynamodbEvent evento, Contagem contagem) {
         if (evento != null && evento.getRecords() != null) {
             for (DynamodbStreamRecord registro : evento.getRecords()) {
-                if (!processarRegistro(registro)) {
+                if (!processarRegistro(registro, contagem)) {
                     return new StreamsEventResponse(
                             List.of(new BatchItemFailure(registro.getDynamodb().getSequenceNumber())));
                 }
@@ -134,7 +165,7 @@ public class NotificarCriticaHandler implements RequestHandler<DynamodbEvent, St
     }
 
     /** Devolve falso só quando a publicação falha, o único caso que precisa de nova tentativa. */
-    private boolean processarRegistro(DynamodbStreamRecord registro) {
+    private boolean processarRegistro(DynamodbStreamRecord registro, Contagem contagem) {
         if (!ehCriacaoCritica(registro)) {
             LOG.info("Registro ignorado",
                     entry("eventID", registro.getEventID()),
@@ -145,7 +176,7 @@ public class NotificarCriticaHandler implements RequestHandler<DynamodbEvent, St
         try {
             avaliacao = Avaliacao.deAtributos(paraAtributos(registro.getDynamodb().getNewImage()));
         } catch (ItemInvalidoException e) {
-            descartar(registro, e);
+            descartar(registro, e, contagem);
             return true;
         }
         return publicar(registro, avaliacao);
@@ -207,14 +238,37 @@ public class NotificarCriticaHandler implements RequestHandler<DynamodbEvent, St
                 entry("sequencia", registro.getDynamodb().getSequenceNumber()),
                 entry("classe", e.getClass().getName()),
                 entry("codigoErro", codigoErro),
-                entry("idRequisicao", idRequisicao));
+                entry("idRequisicao", idRequisicao),
+                entry(CAMPO_ALARME, MARCADOR_ALARME));
     }
 
-    private void descartar(DynamodbStreamRecord registro, ItemInvalidoException e) {
+    private void descartar(DynamodbStreamRecord registro, ItemInvalidoException e, Contagem contagem) {
         LOG.error("Item inválido descartado",
                 entry("eventID", registro.getEventID()),
-                entry("campos", e.campos()));
-        emitirMetrica(() -> metricas.addMetric(METRICA_ITEM_INVALIDO, 1, MetricUnit.COUNT));
+                entry("campos", e.campos()),
+                entry(CAMPO_ALARME, MARCADOR_ALARME));
+        contagem.contar(METRICA_ITEM_INVALIDO);
+    }
+
+    /**
+     * Métricas contadas numa invocação. Sem nenhuma, a descarga não é feita: o Powertools gravaria
+     * {@code No metrics were emitted} em WARN a cada lote publicado com sucesso.
+     */
+    private final class Contagem {
+        private boolean contou;
+
+        void contar(String metrica) {
+            emitirMetrica(() -> {
+                metricas.addMetric(metrica, 1, MetricUnit.COUNT);
+                contou = true;
+            });
+        }
+
+        void descarregar() {
+            if (contou) {
+                emitirMetrica(metricas::flush);
+            }
+        }
     }
 
     // Falha de métrica não pode virar falha do registro: reprocessar duplicaria avisos já publicados.

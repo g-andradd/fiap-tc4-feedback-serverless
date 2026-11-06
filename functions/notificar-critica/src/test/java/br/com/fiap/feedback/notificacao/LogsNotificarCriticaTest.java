@@ -6,6 +6,7 @@ import static br.com.fiap.feedback.notificacao.ApoioTeste.itemCritico;
 import static br.com.fiap.feedback.notificacao.ApoioTeste.lote;
 import static br.com.fiap.feedback.notificacao.ApoioTeste.registro;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -58,6 +59,8 @@ class LogsNotificarCriticaTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String MARCADOR = "marcador-unico-7c1e";
+    // O filtro de métrica busca por substring, por isso a ausência é conferida no texto da linha.
+    private static final String MARCADOR_ALARME = "FALHA_FUNCAO";
 
     private SnsClient cliente;
     private NotificarCriticaHandler handler;
@@ -104,6 +107,27 @@ class LogsNotificarCriticaTest {
     private JsonNode unicoLog() throws IOException {
         assertThat(appender.linhas).hasSize(1);
         return JSON.readTree(appender.linhas.getFirst());
+    }
+
+    private List<JsonNode> logsEmJson() throws IOException {
+        List<JsonNode> logs = new ArrayList<>();
+        for (String linha : appender.linhas) {
+            logs.add(JSON.readTree(linha));
+        }
+        return logs;
+    }
+
+    private void assertSemWarnNemErrorNemMarcador() throws IOException {
+        assertThat(logsEmJson())
+                .extracting(log -> log.get("level").textValue())
+                .isNotEmpty()
+                .doesNotContain("WARN", "ERROR");
+        assertThat(String.join("\n", appender.linhas)).doesNotContain(MARCADOR_ALARME);
+    }
+
+    private static void assertComMarcadorDeAlarme(JsonNode log) {
+        assertThat(log.get("level").textValue()).isEqualTo("ERROR");
+        assertThat(log.get("alarme").textValue()).isEqualTo(MARCADOR_ALARME);
     }
 
     private void falharPublicacaoComMarcador() {
@@ -153,6 +177,7 @@ class LogsNotificarCriticaTest {
         assertThat(log.get("codigoErro").textValue()).isEqualTo("InvalidParameter");
         assertThat(log.get("idRequisicao").textValue()).isEqualTo("req-1");
         assertThat(log.has("error")).isFalse();
+        assertComMarcadorDeAlarme(log);
     }
 
     @Test
@@ -184,6 +209,7 @@ class LogsNotificarCriticaTest {
         assertThat(log.get("level").textValue()).isEqualTo("ERROR");
         assertThat(log.get("classe").textValue()).isEqualTo(SdkClientException.class.getName());
         assertThat(log.get("codigoErro").textValue()).isEqualTo("desconhecido");
+        assertComMarcadorDeAlarme(log);
     }
 
     @ParameterizedTest
@@ -201,6 +227,66 @@ class LogsNotificarCriticaTest {
         assertThat(log.get("message").textValue()).isEqualTo("Item inválido descartado");
         assertThat(log.get("eventID").textValue()).isEqualTo("evento-100");
         assertThat(log.get("campos").toString()).contains(campo);
+        assertThat(log.has("error")).isFalse();
+        assertComMarcadorDeAlarme(log);
+    }
+
+    @Test
+    @DisplayName("Lote publicado com sucesso não grava linha em WARN ou ERROR nem o marcador de alarme")
+    void loteComSucessoSemWarnNemMarcador() throws Exception {
+        when(cliente.publish(any(PublishRequest.class)))
+                .thenReturn(PublishResponse.builder().messageId("mensagem-1").build());
+
+        processar(lote(
+                insercao("100", itemCritico("id-1", "Aula ruim")),
+                insercao("101", itemCritico("id-2", "Aula péssima"))));
+
+        assertThat(appender.linhas).hasSize(2);
+        assertSemWarnNemErrorNemMarcador();
+    }
+
+    @Test
+    @DisplayName("Registro ignorado não grava linha em WARN ou ERROR nem o marcador de alarme")
+    void ignoradoSemWarnNemMarcador() throws Exception {
+        processar(lote(registro("MODIFY", "100", itemCritico("id-1", "Aula"))));
+
+        assertSemWarnNemErrorNemMarcador();
+    }
+
+    @Test
+    @DisplayName("Falha parcial do lote: só a linha da publicação que falhou leva o marcador")
+    void falhaParcialDoLote() throws Exception {
+        when(cliente.publish(any(PublishRequest.class)))
+                .thenReturn(PublishResponse.builder().messageId("mensagem-1").build())
+                .thenThrow(SdkClientException.create("Falhou com " + MARCADOR));
+
+        StreamsEventResponse resposta = processar(lote(
+                insercao("100", itemCritico("id-1", MARCADOR)),
+                insercao("101", itemCritico("id-2", MARCADOR))));
+
+        assertThat(resposta.getBatchItemFailures()).hasSize(1);
+        assertSemDescricao();
+        List<JsonNode> logs = logsEmJson();
+        assertThat(logs).extracting(log -> log.get("message").textValue())
+                .containsExactly("Aviso publicado", "Falha ao publicar aviso");
+        assertThat(logs.getFirst().has("alarme")).isFalse();
+        assertComMarcadorDeAlarme(logs.getLast());
+        assertThat(logs.getLast().get("sequencia").textValue()).isEqualTo("101");
+    }
+
+    @Test
+    @DisplayName("Error que escapa da invocação é registrado só pela classe, com o marcador, e relançado")
+    void errorEscapadoComMarcador() throws Exception {
+        NoClassDefFoundError erro = new NoClassDefFoundError("classe/" + MARCADOR);
+        when(cliente.publish(any(PublishRequest.class))).thenThrow(erro);
+
+        assertThatThrownBy(() -> processar(lote(insercao("100", itemCritico("id-1", MARCADOR))))).isSameAs(erro);
+
+        assertSemDescricao();
+        JsonNode log = unicoLog();
+        assertComMarcadorDeAlarme(log);
+        assertThat(log.get("message").textValue()).isEqualTo("Erro na execução da função");
+        assertThat(log.get("classe").textValue()).isEqualTo(NoClassDefFoundError.class.getName());
         assertThat(log.has("error")).isFalse();
     }
 

@@ -53,6 +53,11 @@
             <artifactId>aspectjrt</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Aquecimento dos clientes do SDK antes do snapshot do SnapStart. -->
+        <dependency>
+            <groupId>org.crac</groupId>
+            <artifactId>crac</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

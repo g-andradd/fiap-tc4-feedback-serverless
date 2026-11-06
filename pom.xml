@@ -30,6 +30,8 @@
         <!-- Mesma versão do jackson.version do powertools-parent 2.11.0. Suba junto com o Powertools. -->
         <jackson.version>2.22.3</jackson.version>
         <aspectj.version>1.9.27</aspectj.version>
+        <!-- Mesma versão que o powertools-tracing 2.11.0 traz. Suba junto com o Powertools. -->
+        <crac.version>1.5.0</crac.version>
         <junit.version>5.14.4</junit.version>
         <assertj.version>3.27.7</assertj.version>
         <mockito.version>5.24.0</mockito.version>
@@ -110,6 +112,13 @@
                 <groupId>org.aspectj</groupId>
                 <artifactId>aspectjrt</artifactId>
                 <version>${aspectj.version}</version>
+            </dependency>
+
+            <!-- Runtime hooks do SnapStart: o aquecimento dos clientes antes do snapshot. -->
+            <dependency>
+                <groupId>org.crac</groupId>
+                <artifactId>crac</artifactId>
+                <version>${crac.version}</version>
             </dependency>
 
             <dependency>
