@@ -73,7 +73,7 @@ Conteúdo obrigatório:
 
 ```
 Aluno → API Gateway (POST /avaliacao) → Lambda registrar-avaliacao → DynamoDB
-DynamoDB Streams (filtro: urgencia = CRITICA) → Lambda notificar-critica → SNS → e-mail dos admins
+DynamoDB Streams (filtro: criação com urgencia = CRITICA) → Lambda notificar-critica → SNS → e-mail dos admins
 EventBridge Scheduler (segunda 08h) → Lambda gerar-relatorio-semanal → S3 + SNS
 CloudWatch + X-Ray em todas as funções
 ```
