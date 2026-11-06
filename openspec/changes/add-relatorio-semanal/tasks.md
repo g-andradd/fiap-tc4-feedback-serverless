@@ -34,15 +34,15 @@ Depende de `add-registro-avaliacao` integrado: usa o `Globals`, o contrato do it
 - [x] 4.1 [IA] qa: conferir a cobertura de cada `#### Scenario` da spec nos testes e relatar os que dependem da stack implantada
 
 ## 5. Deploy em dev e conferência
-- [ ] 5.1 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-relatorio-semanal`, push, PR para `develop`) e conferir o CI verde
-- [ ] 5.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`, especialmente a criação da role `GerarRelatorioSemanalAgendaRole` com boundary
-- [ ] 5.3 [IA] qa: conferir o SnapStart: `aws lambda get-function-configuration --function-name feedback-gerar-relatorio-semanal-dev:live --region sa-east-1 --query "{Version:Version,State:State,OptimizationStatus:SnapStart.OptimizationStatus}"`. Esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`
-- [ ] 5.4 [IA] qa: conferir o agendamento com `aws scheduler get-schedule --name feedback-relatorio-semanal-dev --region sa-east-1`: expressão, fuso, alvo no alias `live`, política de repetição e estado
-- [ ] 5.5 [IA] qa: rodar o comando manual da D1, sempre com `:live`, sem data, com a data de amanhã e com data inválida, e conferir objeto, `FunctionError` e o aviso recebido: média, totais por urgência e por dia, localização, e nenhuma descrição nem nota individual
-- [ ] 5.6 [IA] qa: conferir reexecução: um único objeto por data de referência e novo aviso
-- [ ] 5.7 [IA] qa: confirmar que uma requisição anônima ao objeto é negada
-- [ ] 5.8 [IA] qa: conferir nos logs do CloudWatch que o marcador da descrição não aparece
-- [ ] 5.9 [IA] qa: registrar o relatório de conformidade
+- [x] 5.1 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-relatorio-semanal`, push, PR para `develop`) e conferir o CI verde
+- [x] 5.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`, especialmente a criação da role `GerarRelatorioSemanalAgendaRole` com boundary
+- [x] 5.3 [IA] qa: conferir o SnapStart: `aws lambda get-function-configuration --function-name feedback-gerar-relatorio-semanal-dev:live --region sa-east-1 --query "{Version:Version,State:State,OptimizationStatus:SnapStart.OptimizationStatus}"`. Esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`
+- [x] 5.4 [IA] qa: conferir o agendamento com `aws scheduler get-schedule --name feedback-relatorio-semanal-dev --region sa-east-1`: expressão, fuso, alvo no alias `live`, política de repetição e estado
+- [ ] 5.5 [IA] qa: rodar o comando manual da D1, sempre com `:live`, sem data, com a data de amanhã e com data inválida, e conferir objeto, `FunctionError` e o aviso recebido: média, totais por urgência e por dia, localização, e nenhuma descrição nem nota individual. Execução feita em 06/11/2026; falta o Gabriel confirmar no inbox os 6 avisos de 03:28 a 03:44 UTC
+- [x] 5.6 [IA] qa: conferir reexecução: um único objeto por data de referência e novo aviso
+- [x] 5.7 [IA] qa: confirmar que uma requisição anônima ao objeto é negada
+- [x] 5.8 [IA] qa: conferir nos logs do CloudWatch que o marcador da descrição não aparece
+- [x] 5.9 [IA] qa: registrar o relatório de conformidade
 
 ## 6. Documentação
 - [x] 6.1 [IA] documentador: registrar no README o comando manual com `:live`, a regra da data de referência, o formato do relatório e do aviso, como baixar pelo `aws s3 cp` e o passo de esvaziar o bucket antes de `sam delete`
