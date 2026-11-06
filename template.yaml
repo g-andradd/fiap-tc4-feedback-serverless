@@ -237,6 +237,69 @@ Resources:
               Filters:
                 - Pattern: '{"eventName":["INSERT"],"dynamodb":{"NewImage":{"urgencia":{"S":["CRITICA"]}}}}'
 
+  LogGerarRelatorioSemanal:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/feedback-gerar-relatorio-semanal-${Stage}
+      RetentionInDays: 14
+
+  GerarRelatorioSemanal:
+    Type: AWS::Serverless::Function
+    DependsOn: LogGerarRelatorioSemanal
+    Properties:
+      FunctionName: !Sub feedback-gerar-relatorio-semanal-${Stage}
+      CodeUri: functions/gerar-relatorio-semanal
+      Handler: br.com.fiap.feedback.relatorio.GerarRelatorioSemanalHandler::handleRequest
+      Timeout: 120
+      AutoPublishAliasAllProperties: true
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: gerar-relatorio-semanal
+          TABELA_AVALIACOES: !Ref TabelaAvaliacoes
+          BUCKET_RELATORIOS: !Ref BucketRelatorios
+          TOPICO_ADMINS_ARN: !Ref TopicoAdmins
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: ConsultarIndicePorData
+              Effect: Allow
+              Action: dynamodb:Query
+              Resource: !Sub ${TabelaAvaliacoes.Arn}/index/por-data
+            - Sid: GravarRelatorio
+              Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub ${BucketRelatorios.Arn}/relatorios/*
+            - Sid: PublicarNoTopico
+              Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref TopicoAdmins
+            - Sid: UsarChaveDoTopico
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey*
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub sns.${AWS::Region}.amazonaws.com
+      Events:
+        Agenda:
+          Type: ScheduleV2
+          Properties:
+            Name: !Sub feedback-relatorio-semanal-${Stage}
+            Description: Relatório semanal, toda segunda às 08:00 em São Paulo
+            ScheduleExpression: cron(0 8 ? * MON *)
+            ScheduleExpressionTimezone: America/Sao_Paulo
+            State: ENABLED
+            Input: '{}'
+            FlexibleTimeWindow:
+              Mode: "OFF"
+            RetryPolicy:
+              MaximumRetryAttempts: 3
+              MaximumEventAgeInSeconds: 3600
+            # Globals não alcança esta role. Sem o boundary aqui, iam:CreateRole é negado.
+            PermissionsBoundary: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/feedback-limite-funcoes-${Stage}
+
 Outputs:
   TabelaAvaliacoesNome:
     Description: Nome da tabela de avaliações
@@ -274,3 +337,9 @@ Outputs:
   NotificarCriticaAliasArn:
     Description: ARN do alias live da função de notificação
     Value: !Ref NotificarCritica.Alias
+  GerarRelatorioSemanalNome:
+    Description: Nome da função de relatório
+    Value: !Ref GerarRelatorioSemanal
+  GerarRelatorioSemanalAliasArn:
+    Description: ARN do alias live da função de relatório. O acionamento manual usa este alias
+    Value: !Ref GerarRelatorioSemanal.Alias

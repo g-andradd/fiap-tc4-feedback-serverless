@@ -11,18 +11,17 @@ Tarefas 4.1, 4.2, 5.4 a 5.8 e 7.6. A validação local foi feita em 05/11/2026 s
 
 | Status | Quantidade |
 |---|---|
-| ok (executado) | 20 |
-| dos quais, executados também na stack | 11 |
-| dos quais, executados só no handler, com cliente simulado | 9 |
+| ok (executado) | 21 |
+| dos quais, executados também na stack | 14 |
+| dos quais, executados só no handler, com cliente simulado | 7 |
 | ok (por configuração) | 4 |
-| pendente de confirmação do Gabriel | 1 |
 | não coberto | 0 |
 | falha | 0 |
 | **Total de cenários** | **25** |
 
-**O change fica conforme quando o Gabriel confirmar o e-mail.** `E-mail recebido pelo administrador` tem a entrega aceita pelo SNS (`NumberOfNotificationsDelivered` igual a 2 e `NumberOfNotificationsFailed` igual a 0), mas o QA não lê a caixa de entrada. Se o e-mail não tiver chegado, ou chegar sem descrição, urgência ou data de envio, o cenário vira falha. O que procurar está em "Para o Gabriel conferir no e-mail".
+**O change está conforme pelo critério desta matriz, com 0 não coberto e 0 falha.** `E-mail recebido pelo administrador` ficou pendente até o Gabriel conferir a caixa de entrada em 05/11/2026: chegaram exatamente os 2 e-mails esperados, com descrição, urgência e data de envio. O QA não lê a caixa de entrada; o resultado foi relatado pelo Gabriel por meio do orquestrador e está em "Conferência do e-mail pelo Gabriel".
 
-Os 2 cenários antes não cobertos foram resolvidos: `Sem invocação no ambiente implantado` passou a ok com execução na stack, e `E-mail recebido pelo administrador` está pendente do Gabriel.
+Os 2 cenários antes não cobertos foram resolvidos: `Sem invocação no ambiente implantado` passou a ok com execução na stack, e `E-mail recebido pelo administrador` passou a ok com a conferência do Gabriel. A mesma conferência deu a réplica no e-mail de `Campos obrigatórios presentes` e `Descrição no tamanho máximo`, que passaram a contar como executados também na stack.
 
 Dos 9 cenários antes por configuração, 5 passaram a ok com evidência da stack: os quatro do filtro e `Sem controle de deduplicação`. Os outros 4 continuam por configuração, porque nenhuma tarefa da seção 5 provoca falha de publicação nem indisponibilidade do tópico:
 - `Evento reprocessado`
@@ -30,12 +29,11 @@ Dos 9 cenários antes por configuração, 5 passaram a ok com evidência da stac
 - `Item preservado após a falha`
 - `Registro com tópico indisponível`
 
-Estes 9 seguem com prova só em `mvn -B verify`, com cliente simulado: `Lote com várias avaliações críticas`, `Campos obrigatórios presentes`, `Descrição no tamanho máximo`, `Data de envio vem da avaliação`, `Alteração que torna o item crítico não gera aviso`, `Remoção não gera aviso`, `Publicação rejeitada`, `Mesmo evento entregue duas vezes` e `Processamento com falha`. Os dois primeiros de conteúdo têm na stack a confirmação do tamanho exato da mensagem publicada, e dependem do e-mail para a confirmação do texto.
+Estes 7 seguem com prova só em `mvn -B verify`, com cliente simulado: `Lote com várias avaliações críticas`, `Data de envio vem da avaliação`, `Alteração que torna o item crítico não gera aviso`, `Remoção não gera aviso`, `Publicação rejeitada`, `Mesmo evento entregue duas vezes` e `Processamento com falha`.
 
 Significado dos status:
 - **ok (executado):** o teste rodou em `mvn -B verify` e a asserção prova o que o cenário pede no nível do handler, ou a execução na stack prova o que o cenário pede. A coluna Limite diz qual dos dois casos vale.
 - **ok (por configuração):** o template, o recurso implantado, o classpath ou a inspeção garantem o comportamento, mas ele não foi exercitado. Não equivale a teste. Quando só parte das cláusulas do cenário foi executada, vale o status da cláusula mais fraca.
-- **pendente de confirmação do Gabriel:** a stack fez a sua parte, e só uma conferência manual do Gabriel fecha o cenário. Não conta como ok.
 - **não coberto:** não há evidência do que o cenário pede. Conta como falha.
 - **falha:** o comportamento observado contraria o cenário.
 
@@ -45,14 +43,15 @@ Os testes usam `SnsClient` simulado com Mockito, `Metrics` simulado, `Rastreador
 
 - **O que os testes provam:** dado o registro do Stream, o handler monta o `PublishRequest` esperado ou não publica, e devolve o `batchItemFailures` esperado.
 - **O que a stack acrescentou:** a publicação real no SNS, a entrega aceita para a assinatura de e-mail, o motor de filtro do Lambda, o destino de falha no S3 com registros reais, as permissões, o SnapStart, os logs no CloudWatch e a leitura do JSON real do evento pelo runtime, todos no caminho de sucesso.
-- **O que segue sem prova real:** a chegada e o texto do e-mail (pendente do Gabriel), a falha de publicação, a nova entrega do evento, a falha parcial de lote, o log em ERROR e um lote com mais de um registro crítico chegando à função.
+- **O que o e-mail acrescentou:** a chegada dos 2 avisos e o texto deles, conferidos pelo Gabriel na caixa de entrada. O QA não viu os e-mails.
+- **O que segue sem prova real:** a falha de publicação, a nova entrega do evento, a falha parcial de lote, o log em ERROR e um lote com mais de um registro crítico chegando à função.
 
 Na coluna Limite da matriz:
 - **STACK:** além do teste do handler, quando houver, o cenário foi repetido em `feedback-dev` e os logs, as métricas, o Stream ou o recurso implantado foram conferidos.
 - **SIM, sem réplica:** só cliente simulado, e a stack não reproduziu o caso. O motivo está na própria linha.
 - **LOG:** captura em memória com o layout real do `log4j2.xml` e nível `ALL`, com cliente simulado. O SDK real não roda nesses testes.
 - **CONFIG:** leitura do template ou do recurso implantado, com a sonda abaixo quando indicada. Nada foi exercitado.
-- **GABRIEL:** só a conferência do Gabriel no e-mail dá a evidência que falta.
+- **E-MAIL:** conferência feita pelo Gabriel na caixa de entrada em 05/11/2026, relatada ao QA pelo orquestrador. Vale junto com a evidência STACK da mesma linha.
 
 A **sonda** é um programa local, fora do repositório e não versionado, executado com o Python do SAM CLI e com a rede bloqueada no próprio programa. Ela aplica o transform do SAM ao `template.yaml` e lê o padrão de filtro do recurso gerado. O avaliador do padrão foi escrito à mão, seguindo a semântica da documentação citada na D1. **Ele não é o motor do Lambda.** O motor real foi exercitado na stack, nas tarefas 5.5 e 5.6.
 
@@ -181,7 +180,7 @@ Isso confirma na prática o que a D4 previa: o destino S3 guarda o lote inteiro,
 
 **Conclusão: foi o filtro por `eventName` que evitou a invocação.** O handler nem recebeu o `MODIFY`, então a segunda checagem da D2 não foi exercitada na stack e continua provada só nos testes. A contradição da documentação citada na D1 se resolve a favor do filtro: ele aceita `eventName` e não bloqueia `INSERT` crítico, como mostra a 5.6.
 
-### 5.6. Ponta a ponta: ok, com o e-mail pendente do Gabriel
+### 5.6. Ponta a ponta: ok, com o e-mail conferido pelo Gabriel
 
 Envio com a URL do output `ApiAvaliacoesUrl` (`<url>`). Rodada `QA-NOTIF-202611052214-8a6274`:
 
@@ -203,18 +202,23 @@ Os 4 itens têm os 6 atributos do contrato e `dataEnvio` igual a `2026-11-05`. O
 | `NumberOfNotificationsDelivered` e `NumberOfNotificationsFailed` | 2 e 0 às 22:15 |
 | `PublishSize` | Soma 1873 bytes, máximo 1703. O tamanho em UTF-8 do corpo esperado pelo formato da D6 é 170 bytes para a crítica curta e 1703 para a de 1000 caracteres, e 170 mais 1703 dá 1873. A descrição de 1000 caracteres foi publicada inteira, ao menos em quantidade de bytes |
 | Trace do X-Ray da primeira invocação | Segmento de 7,248 s: `Restore` 0,775 s, `## publicarAviso` 4,854 s, e dentro dele `SNS` `Publish` 4,301 s, sem erro. A segunda invocação não foi amostrada (`REPORT` sem linha `XRAY`) |
-| Assunto com acentos | Aceito pelo SNS nas 2 publicações. Resolve a observação E na publicação. A exibição no e-mail fica com o Gabriel |
+| Assunto com acentos | Aceito pelo SNS nas 2 publicações e exibido corretamente no e-mail, ver a observação E |
 
-#### Para o Gabriel conferir no e-mail
+#### Conferência do e-mail pelo Gabriel
 
-Dois e-mails com o assunto `Avaliação crítica registrada`, publicados em 05/11/2026 às 22:15:08 e 22:15:09 UTC (19:15 no horário de Brasília). Conferir em cada um:
+O Gabriel conferiu a caixa de entrada da assinatura de dev em 05/11/2026 e relatou o resultado ao QA por meio do orquestrador. O QA não viu os e-mails e não reproduz o corpo deles aqui.
 
-| Marcador no corpo | O que conferir |
+| Item | Resultado relatado |
 |---|---|
-| `QA-NOTIF-202611052214-8a6274-CRIT` | Corpo com `Urgência: CRITICA`, `Data de envio: 2026-11-05` e a descrição começando pelo marcador |
-| `QA-NOTIF-202611052214-8a6274-CRIT1000` | Mesmos campos, e a descrição inteira, com acentos legíveis, terminando em `Ç`, sem corte nem reticências |
+| Quantidade | Exatamente 2 e-mails, remetente AWS Notifications, às 19:15 de Brasília (22:15 UTC), o mesmo horário das 2 publicações |
+| Assunto | `Avaliação crítica registrada`, com os acentos exibidos corretamente |
+| Corpo dos dois | `Uma avaliação crítica foi registrada.`, `Urgência: CRITICA`, `Data de envio: 2026-11-05` e `Descrição:` seguida da descrição, no formato da D6 |
+| `QA-NOTIF-202611052214-8a6274-CRIT` | Descrição curta com o marcador |
+| `QA-NOTIF-202611052214-8a6274-CRIT1000` | Descrição de 1000 caracteres inteira, com acentos, terminando em `Ç`, sem corte |
+| Ausências | Nenhum outro e-mail: nada com `-MEDIA`, `-BAIXA`, `3e4306` ou `85eb85` |
+| Rodapé | O SNS acrescenta um link de cancelamento da assinatura que contém o ID da conta e o e-mail do assinante, ver a observação M |
 
-Não deve haver e-mail com `QA-NOTIF-202611052214-8a6274-MEDIA` nem com `-BAIXA`. Também não deve haver e-mail com os marcadores `QA-202611050457-3e4306` e `QA-202611050500-85eb85`. Se tudo bater, `E-mail recebido pelo administrador` passa a ok (executado), e os dois primeiros cenários de conteúdo ganham a réplica no e-mail.
+Com isso, `E-mail recebido pelo administrador` passa a ok (executado), e `Campos obrigatórios presentes` e `Descrição no tamanho máximo` ganham a réplica no e-mail. A ausência de e-mail para a média, a baixa e os críticos antigos confirma, do lado do destinatário, o que as métricas do tópico já mostravam.
 
 ### 5.7. Logs: ok
 
@@ -281,14 +285,14 @@ Segundo a tarefa 7.1, os recursos temporários foram apagados. O QA confirmou s�
 | Aviso publicado no tópico do ambiente | ok (executado) | `H.AvisoImediato.publicaNoTopicoConfigurado`. Stack: 2 críticas, 2 `Aviso publicado` com `messageId` e `NumberOfMessagesPublished` igual a 2 em `feedback-admins-dev`. `TOPICO_ADMINS_ARN` igual ao output da stack, e `sns:Publish` só nesse tópico, que é o único da conta em `sa-east-1` | STACK, 5.6 |
 | Publicação na execução acionada pelo evento | ok (executado) | `H.AvisoImediato.publicaNoTopicoConfigurado`. Stack: o `Aviso publicado` de cada avaliação tem o mesmo `function_request_id` da invocação que recebeu o registro, cerca de 15 s e 9 s depois do `criadoEm`. Mapeamento com `MaximumBatchingWindowInSeconds` igual a 0 | STACK, 5.6 |
 | Lote com várias avaliações críticas | ok (executado) | `H.AvisoImediato.loteComTresCriticas`: três publicações, cada uma com a sua descrição, em ordem | SIM, sem réplica. As 2 críticas da 5.6 caíram em shards diferentes e chegaram em invocações separadas |
-| E-mail recebido pelo administrador | **pendente de confirmação do Gabriel** | Stack: assinatura `email` confirmada, `NumberOfNotificationsDelivered` igual a 2 e `NumberOfNotificationsFailed` igual a 0 às 22:15 UTC. O texto do e-mail não foi visto pelo QA | GABRIEL, ver "Para o Gabriel conferir no e-mail" |
+| E-mail recebido pelo administrador | ok (executado) | Stack: assinatura `email` confirmada, `NumberOfNotificationsDelivered` igual a 2 e `NumberOfNotificationsFailed` igual a 0 às 22:15 UTC. E-mail: o Gabriel recebeu exatamente os 2 avisos, com descrição, urgência e data de envio | STACK e E-MAIL, ver "Conferência do e-mail pelo Gabriel" |
 
 ### Conteúdo obrigatório do aviso
 
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
-| Campos obrigatórios presentes | ok (executado) | `H.Conteudo.camposObrigatorios`, `A.camposObrigatorios`, `A.formatoCompleto`, com o corpo exato. Stack: `PublishSize` de 170 bytes, igual ao corpo esperado para a crítica curta | SIM. O texto publicado não é visível em log, de propósito. Réplica no e-mail pelo Gabriel |
-| Descrição no tamanho máximo | ok (executado) | `H.Conteudo.descricaoNoTamanhoMaximo`, `A.descricaoNoTamanhoMaximo`, `A.descricaoSemAlteracao`. Stack: descrição de 1000 caracteres com acentos aceita pela API, e `PublishSize` de 1703 bytes, igual ao corpo esperado com a descrição inteira | SIM. Na stack, a prova é de tamanho, não de texto. Réplica no e-mail pelo Gabriel |
+| Campos obrigatórios presentes | ok (executado) | `H.Conteudo.camposObrigatorios`, `A.camposObrigatorios`, `A.formatoCompleto`, com o corpo exato. Stack: `PublishSize` de 170 bytes, igual ao corpo esperado para a crítica curta. E-mail: os 2 avisos trazem a descrição, `Urgência: CRITICA` e `Data de envio: 2026-11-05` | STACK e E-MAIL. O texto publicado não é visível em log, de propósito, e foi conferido no e-mail |
+| Descrição no tamanho máximo | ok (executado) | `H.Conteudo.descricaoNoTamanhoMaximo`, `A.descricaoNoTamanhoMaximo`, `A.descricaoSemAlteracao`. Stack: descrição de 1000 caracteres com acentos aceita pela API, e `PublishSize` de 1703 bytes, igual ao corpo esperado com a descrição inteira. E-mail: os 1000 caracteres chegaram inteiros, com acentos, terminando em `Ç`, sem corte | STACK e E-MAIL. O tamanho vem da métrica, e o texto, da conferência do Gabriel |
 | Data de envio vem da avaliação | ok (executado) | `H.Conteudo.dataEnvioPersistida`, `A.dataDeEnvioPersistida`: item de 2020-02-29, sem a data de hoje nem a de `criadoEm` | SIM, sem réplica. Na stack, data persistida e data de processamento são as duas 2026-11-05 e não se distinguem |
 
 ### Acionamento restrito a avaliações críticas
@@ -355,13 +359,13 @@ Nenhum defeito encontrado no código de produção. Nenhum código de produção
 
 ## Observações
 
-Não reprovam cenário. As letras A a G vêm do QA local, com o que a stack mostrou. H a L são novas.
+Não reprovam cenário. As letras A a G vêm do QA local, com o que a stack e o e-mail mostraram. H a M são novas.
 
 - **A. Filtro por `eventName`: resolvido na stack.** O QA local temia que o padrão nunca casasse e que não houvesse plano B. Na stack, o filtro casou com os `INSERT` críticos, que geraram aviso, e barrou `MEDIA`, `BAIXA` e o `MODIFY` crítico. O risco não se confirmou em dev. Hml e prod usam o mesmo template, mas só os deploys desses ambientes provam o mesmo comportamento lá.
 - **B. Nenhum teste protege o filtro nem o tópico.** Sem mudança. 0 testes leem `template.yaml`. A stack confirmou o filtro implantado hoje, mas uma regressão futura no template continua passando em `mvn test`.
 - **C. O caminho de falha segue sem execução real.** Nenhuma publicação falhou na stack. Seguem sem prova real: a nova entrega do evento, a falha parcial de lote, o log em ERROR no CloudWatch e a ausência do marcador nesse caminho. A stack provou uma parte do caminho de descarte: o destino S3 recebe o lote com `condition` igual a `RecordAgeExceeded`, com os registros completos. O descarte por tentativas esgotadas não foi visto. Uma tarefa que provoque a falha exige alteração temporária na stack, a critério do orquestrador e do Gabriel.
 - **D. Ligação de produção.** A stack executou, no caminho de sucesso, o que os testes não executam: `new NotificarCriticaHandler()`, o SDK real, o `Metrics` real, o X-Ray real e a leitura do evento a partir do JSON do runtime. Funcionou nas 2 invocações.
-- **E. Assunto com acentos: resolvido na publicação.** O SNS aceitou `Avaliação crítica registrada` nas 2 publicações. A exibição no e-mail fica com o Gabriel.
+- **E. Assunto com acentos: resolvido.** O SNS aceitou `Avaliação crítica registrada` nas 2 publicações, e o Gabriel confirmou que o assunto e a descrição de 1000 caracteres aparecem no e-mail com os acentos corretos.
 - **F. Prazo da D3 vale por chamada, não por lote.** Sem mudança, e agora com um número, ver a observação I.
 - **G. Trace do X-Ray.** Confirmado na stack: o trace da primeira invocação não tem marcador nem descrição.
 - **H. `Errors` não deve mostrar a falha de publicação.** Com `ReportBatchItemFailures`, o handler devolve a falha em `batchItemFailures` e termina normalmente, então a invocação não é um erro de função e, pela definição da métrica, não entra em `Errors`. A falha só aparece no log em ERROR e no reprocessamento. Na stack, `Errors` ficou em 0 nas 2 invocações, mas nenhuma falha foi provocada, então isso continua sem observação real. Afeta os alarmes de `add-observabilidade-seguranca`, que não devem contar só com `Errors` para esta função.
@@ -369,6 +373,7 @@ Não reprovam cenário. As letras A a G vêm do QA local, com o que a stack most
 - **J. `approximateInvokeCount` igual a 1 sem invocação.** Os 5 objetos do destino trazem `approximateInvokeCount: 1`, mas `Invocations`, os logs e `NumberOfMessagesPublished` mostram que a função não foi chamada para esses registros. O QA não encontrou na conta nada que explique o valor. Quem usar esse campo para saber se houve tentativa de aviso vai concluir errado.
 - **K. `WARN` em toda invocação com sucesso.** O Powertools registra `No metrics were emitted` em WARN quando a invocação não emite métrica, o que é o caso normal desta função, porque `ItemInvalido` só sai no descarte da D5. Isso põe uma linha WARN em toda invocação e atrapalha filtro ou alarme por nível WARN. Não viola a spec. Devolver ao dev-java, para avaliar com o arquiteto. Severidade baixa. Cada invocação também gera 3 linhas INFO do SDK do X-Ray, que são ruído e não têm dado do aluno.
 - **L. Inicializações e restaurações sem invocação.** Além do `INIT` da publicação da versão às 21:31:59, houve um `INIT_START` às 21:50:13 e um `RESTORE_START` com `RESTORE_REPORT` às 22:22:15 UTC, os dois sem `START` e sem ponto em `Invocations`. O QA não identificou a causa. Não afetam métricas de invocação nem geram aviso, mas aparecem no log e devem ser lembrados ao ler o grupo.
+- **M. Rodapé do e-mail expõe dados no vídeo.** O SNS acrescenta ao fim de todo e-mail um link para cancelar a assinatura, e esse link contém o ID da conta e o e-mail do assinante. O texto não vem do código da função e não viola a spec. Ao gravar o vídeo da entrega, desfocar o rodapé, ou rolar a tela para que ele não apareça. Vale também para capturas de tela no relatório da FIAP.
 
 ## Permissões
 

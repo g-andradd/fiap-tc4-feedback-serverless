@@ -270,6 +270,171 @@ sam delete --stack-name "$STACK" --region sa-east-1 --profile tc4-admin
 - Se o bucket receber um objeto novo entre o `aws s3 rm` e o `sam delete`, a exclusão falha. Nesse caso, esvazie de novo e repita.
 - Não apague o bucket por fora da stack. A documentação da AWS alerta que excluir o bucket sem remover o destino de falha permite que outra conta recrie o nome e receba os registros.
 
+## Relatório semanal: acionamento manual e download
+
+Esta seção descreve o que está declarado no `template.yaml` e no código de `gerar-relatorio-semanal` e `functions/dominio`. A função ainda não foi implantada, então nada daqui foi executado na AWS.
+
+O template agenda a geração para toda segunda às 08:00 em America/Sao_Paulo. O comando abaixo gera o relatório em qualquer dia, sem depender do agendamento.
+
+Nos comandos com `aws`, acrescente `--profile tc4-admin` se a sua credencial padrão não for dessa conta. Para `hml` e `prod`, troque o sufixo no nome da função e da stack.
+
+### Acionar pelo alias `live`
+
+```bash
+aws lambda invoke \
+  --function-name feedback-gerar-relatorio-semanal-dev:live \
+  --region sa-east-1 \
+  --cli-binary-format raw-in-base64-out \
+  --cli-read-timeout 150 \
+  --payload '{"dataReferencia":"2026-11-04"}' \
+  resposta.json
+```
+
+- `:live` é obrigatório na prática: sem ele, a chamada vai para `$LATEST`, que não usa SnapStart, e nenhum erro aparece.
+- `--cli-binary-format` permite enviar o payload em texto no AWS CLI v2.
+- `--cli-read-timeout 150` fica acima do `Timeout` de 120 segundos da função, porque o padrão do CLI é 60.
+- Para usar o dia atual como referência, troque o payload por `--payload '{}'`.
+
+Em caso de sucesso, `resposta.json` traz os campos abaixo, em ordem não garantida. O nome do bucket não vem na resposta.
+
+| Campo | Exemplo |
+|---|---|
+| `dataReferencia` | `2026-11-04` |
+| `chave` | `relatorios/2026-11-04.txt` |
+| `quantidadeAvaliacoes` | `3` |
+
+Em caso de falha, a saída do comando traz `FunctionError`, e a mensagem vai para `resposta.json`. As mensagens são fixas:
+
+| Caso | Mensagem |
+|---|---|
+| Data de referência rejeitada | `Data de referência inválida. Informe uma data existente no formato yyyy-MM-dd.` |
+| Falha na leitura, na gravação ou na publicação | `Falha ao gerar o relatório semanal. Consulte os logs da função.` |
+
+Os efeitos seguem a ordem ler, gravar e publicar, e cada passo só roda se o anterior der certo. Falha na leitura, inclusive de um único dia ou de um item inválido, não grava nem avisa. Falha na gravação não avisa. Falha na publicação deixa o relatório guardado, e reexecutar para a mesma data corrige.
+
+### Data de referência
+
+| Valor de `dataReferencia` | Resultado |
+|---|---|
+| Ausente ou `null` | Dia atual em America/Sao_Paulo |
+| Texto `yyyy-MM-dd` com data que existe, no passado ou no futuro | Usa a data informada |
+| Vazio, outro formato (`09/11/2026`, `+12026-01-01`), data inexistente (`2026-02-30`) ou valor que não é texto | Rejeita antes de qualquer leitura, sem gravar e sem avisar. Um relatório já guardado fica como está |
+
+A janela são os 7 dias civis anteriores à referência, em America/Sao_Paulo, com o dia da referência fora:
+
+| Referência | Janela |
+|---|---|
+| `2026-11-09` | `2026-11-02` a `2026-11-08` |
+| `2026-11-04` | `2026-10-28` a `2026-11-03` |
+
+Por isso, uma avaliação enviada hoje só entra se a referência for amanhã.
+
+Cada data de referência tem um único objeto, `relatorios/<dataReferencia>.txt`. Reexecutar para a mesma data substitui o objeto e publica um novo aviso. Datas diferentes geram objetos separados.
+
+### Formato do relatório
+
+Texto puro em UTF-8, com `ContentType: text/plain; charset=utf-8`. Exemplo com notas 2, 6 e 9 e referência `2026-11-09`:
+
+```
+RELATÓRIO SEMANAL DE AVALIAÇÕES
+Ambiente: dev
+Data de referência: 2026-11-09
+Janela: 2026-11-02 a 2026-11-08
+
+Média das notas: 5,67
+
+Quantidade por urgência
+CRITICA: 1
+MEDIA: 1
+BAIXA: 1
+
+Quantidade por dia
+2026-11-02: 0
+2026-11-03: 2
+2026-11-04: 0
+2026-11-05: 1
+2026-11-06: 0
+2026-11-07: 0
+2026-11-08: 0
+
+Avaliações (3)
+
+Data de envio: 2026-11-03 | Urgência: CRITICA
+Descrição: Aula confusa
+
+Data de envio: 2026-11-03 | Urgência: MEDIA
+Descrição: Aula regular
+
+Data de envio: 2026-11-05 | Urgência: BAIXA
+Descrição: Aula ótima
+```
+
+- A média tem duas casas, com vírgula, e o empate arredonda para cima: 5,125 vira `5,13`.
+- A nota individual não aparece. A urgência é a gravada no item, sem recálculo.
+- Os totais trazem sempre os 7 dias e as 3 urgências, mesmo com zero.
+- Na semana vazia, a linha da média é `Média das notas: sem avaliações na janela`, a lista fica `Avaliações (0)` e os totais ficam zerados.
+
+### Formato do aviso
+
+O aviso sai pelo tópico de administradores a cada relatório guardado. Traz os mesmos números, sem descrições nem notas individuais. A mesma execução do exemplo acima gera:
+
+```
+Assunto: Relatório semanal 2026-11-09
+
+Relatório semanal gerado.
+
+Ambiente: dev
+Data de referência: 2026-11-09
+Janela: 2026-11-02 a 2026-11-08
+
+Média das notas: 5,67
+
+Quantidade por urgência
+CRITICA: 1
+MEDIA: 1
+BAIXA: 1
+
+Quantidade por dia
+2026-11-02: 0
+2026-11-03: 2
+2026-11-04: 0
+2026-11-05: 1
+2026-11-06: 0
+2026-11-07: 0
+2026-11-08: 0
+
+Bucket: feedback-relatorios-<ID_DA_CONTA>-dev
+Chave: relatorios/2026-11-09.txt
+Localização: s3://feedback-relatorios-<ID_DA_CONTA>-dev/relatorios/2026-11-09.txt
+
+O bucket é privado. Acesse com uma credencial da conta.
+```
+
+- Na semana vazia, a linha da média é a mesma do relatório, e as urgências e os dias aparecem em zero.
+- Com uma única avaliação na janela, a média é igual à nota dela.
+- O e-mail só chega depois de confirmada a assinatura do tópico.
+- O nome do bucket inclui o ID da conta, então não copie o e-mail para arquivo versionado.
+
+### Baixar com `aws s3 cp`
+
+A resposta da função não traz o bucket. O nome está no output `BucketRelatoriosNome` da stack e no aviso. Troque a chave do exemplo pelo valor de `chave`:
+
+```bash
+BUCKET=$(aws cloudformation describe-stacks \
+  --stack-name feedback-dev \
+  --query "Stacks[0].Outputs[?OutputKey=='BucketRelatoriosNome'].OutputValue" \
+  --output text \
+  --region sa-east-1)
+
+aws s3 cp "s3://$BUCKET/relatorios/2026-11-04.txt" "$HOME/relatorio-2026-11-04.txt" --region sa-east-1
+```
+
+O bucket é privado, então a credencial usada precisa de `s3:GetObject`. A role da função não tem essa permissão. O arquivo traz as descrições escritas pelos alunos e o `.gitignore` não o cobre, então baixe fora do repositório.
+
+### Remover a stack
+
+Os objetos em `relatorios/` também impedem a exclusão do bucket. Siga o passo em [Esvaziar o bucket antes de `sam delete`](#esvaziar-o-bucket-antes-de-sam-delete), e baixe antes os relatórios que quiser guardar.
+
 ## Bootstrap da conta AWS
 
 O template `infra/bootstrap/github-oidc.yaml` cria o provedor OIDC do GitHub e uma role de deploy por ambiente. Ele é aplicado uma vez, com credencial administrativa, e fica fora do pipeline de propósito: assim o pipeline não consegue alterar as próprias permissões.
