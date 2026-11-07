@@ -38,7 +38,7 @@ Depende de `add-registro-avaliacao` integrado: usa o `Globals`, o contrato do it
 - [x] 5.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`, especialmente a criação da role `GerarRelatorioSemanalAgendaRole` com boundary
 - [x] 5.3 [IA] qa: conferir o SnapStart: `aws lambda get-function-configuration --function-name feedback-gerar-relatorio-semanal-dev:live --region sa-east-1 --query "{Version:Version,State:State,OptimizationStatus:SnapStart.OptimizationStatus}"`. Esperado: `State` igual a `Active` e `OptimizationStatus` igual a `On`
 - [x] 5.4 [IA] qa: conferir o agendamento com `aws scheduler get-schedule --name feedback-relatorio-semanal-dev --region sa-east-1`: expressão, fuso, alvo no alias `live`, política de repetição e estado
-- [ ] 5.5 [IA] qa: rodar o comando manual da D1, sempre com `:live`, sem data, com a data de amanhã e com data inválida, e conferir objeto, `FunctionError` e o aviso recebido: média, totais por urgência e por dia, localização, e nenhuma descrição nem nota individual. Execução feita em 06/11/2026; falta o Gabriel confirmar no inbox os 6 avisos de 03:28 a 03:44 UTC
+- [x] 5.5 [IA] qa: rodar o comando manual da D1, sempre com `:live`, sem data, com a data de amanhã e com data inválida, e conferir objeto, `FunctionError` e o aviso recebido: média, totais por urgência e por dia, localização, e nenhuma descrição nem nota individual. Execução feita em 06/11/2026; o Gabriel confirmou no inbox os 6 avisos, com média e totais
 - [x] 5.6 [IA] qa: conferir reexecução: um único objeto por data de referência e novo aviso
 - [x] 5.7 [IA] qa: confirmar que uma requisição anônima ao objeto é negada
 - [x] 5.8 [IA] qa: conferir nos logs do CloudWatch que o marcador da descrição não aparece

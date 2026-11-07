@@ -26,6 +26,8 @@ Os 2 cenários que o QA local deixou em aberto foram fechados na stack: `Agendam
 
 **Conferência do e-mail pendente do Gabriel.** Nenhum cenário desta spec fala em e-mail: os cenários do aviso tratam do que é publicado no tópico, e o texto completo do aviso já está provado nos testes do handler. Por isso nenhum cenário fica com o status pendente. Na stack, o QA confirmou a publicação, a entrega à assinatura e o tamanho exato de cada mensagem, mas não leu o texto. A leitura dos 6 e-mails pelo Gabriel completa a réplica de 6 cenários: `Aviso permite localizar o relatório`, `Aviso traz o resumo da janela`, `Aviso sem descrições`, `Aviso sem notas individuais`, `Aviso da semana vazia` e `Aviso da reexecução`. O roteiro está em "Avisos para o Gabriel conferir no e-mail".
 
+**E-mails confirmados pelo Gabriel em 06/11/2026:** os 6 avisos chegaram, com a média e os totais esperados.
+
 **Execução agendada fica para depois de 09/11/2026.** O agendamento está implantado, mas a primeira execução real é na segunda 09/11/2026 às 08:00 em São Paulo, 11:00 UTC. A conferência dessa execução está em "Conferência pendente da execução agendada".
 
 Significado dos status:
