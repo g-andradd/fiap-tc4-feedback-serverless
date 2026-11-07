@@ -47,25 +47,25 @@ Regra da seção 6, decisão do Gabriel de 05/11/2026: nada é alterado nas fun�
 - [x] 5.3 [IA] qa: rodar `mvn -B install`, `sam build` e `sam validate --lint`, e confirmar que o domínio continua sem SDK da AWS
 
 ## 6. Deploy em dev e conferência
-- [ ] 6.1 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-observabilidade-seguranca`, push, PR para `develop`) e conferir o CI verde, já com o `sam build`
-- [ ] 6.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`
-- [ ] 6.3 [Gabriel] Confirmar a assinatura de e-mail do tópico `feedback-alarmes-dev`
-- [ ] 6.4 [IA] qa: conferir `State` `Active`, `OptimizationStatus` `On` e `MemorySize` 1024 no alias `live` das três funções, e as linhas `Cliente aquecido` no log da publicação de cada versão, sem WARN de aquecimento
-- [ ] 6.5 [IA] qa: conferir que o deploy não mudou a quantidade de itens da tabela, não publicou no tópico de administradores e não criou objeto no bucket; conferir a retenção de 14 dias nos três grupos de dev
-- [ ] 6.6 [IA] qa: conferir atributos, política e assinatura do tópico de alarmes, e tentar `get-topic-attributes` sem TLS, conforme D14
-- [ ] 6.7 [IA] qa: `set-alarm-state` para ALARM em cada alarme, conferir `NumberOfMessagesPublished` do tópico de alarmes, pedir ao Gabriel a confirmação dos três e-mails e conferir que os alarmes voltaram a OK sozinhos. Antes, conferir com `describe-alarms` que a única ação de cada alarme é o tópico de alarmes do ambiente
-- [ ] 6.8 [IA] qa: registrar uma avaliação com texto marcador na descrição; criar o stream `qa-observabilidade-<aaaammdd>` nos três grupos de dev e, pela D14, rodar a janela A (uma linha da aplicação com marcador por grupo, no formato JSON da aplicação, horário atual), conferindo ponto na métrica, os três alarmes em ALARM, os três e-mails e a volta a OK
-- [ ] 6.9 [IA] qa: janela B da D14: as duas linhas de plataforma de tempo esgotado em cada grupo, conferindo métrica, ALARM, e-mail e volta a OK; isolar cada formato com `test-metric-filter`
-- [ ] 6.10 [IA] qa: janela C da D14: linhas reais de rejeição e de sucesso reproduzidas no stream de teste, requisições 400 pela API e `2026-02-30` no alias `live` do relatório, conferindo que os alarmes ficam em OK e a métrica sem ponto. Conferir também que as invocações com sucesso não geram nenhuma linha WARN ou ERROR no grupo de log
-- [ ] 6.11 [IA] qa: item crítico sem `descricao` no alias `live` da notificação, conferindo ALARM e e-mail, e a volta a OK
-- [ ] 6.12 [IA] qa: conferir que nenhuma mensagem de alarme, nenhum histórico e nenhum e-mail das janelas contém o texto marcador da 6.8 ou a nota usada
-- [ ] 6.13 [IA] qa: conferir uma hora sem invocação e sem linha de teste em dev, sem ALARM e sem publicação no tópico de alarmes
-- [ ] 6.14 [IA] qa: conferir o dashboard de dev: widgets da D7, falhas das janelas e restaurações visíveis no período, isolamento por ambiente e ausência do marcador
-- [ ] 6.15 [IA] qa: medir, com 1024 MB, a primeira chamada depois da restauração e a duração da restauração em ao menos duas restaurações por função, conforme D13, e comparar com a meta e com a base de 512 MB. Valor acima da meta é registrado e não bloqueia
-- [ ] 6.16 [IA] qa: inspecionar as roles das três funções contra as anteriores, o boundary de cada uma e as políticas de deploy de dev
+- [x] 6.1 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-observabilidade-seguranca`, push, PR para `develop`) e conferir o CI verde, já com o `sam build`
+- [x] 6.2 [Gabriel] Fazer o merge e conferir o deploy da stack `feedback-dev`
+- [x] 6.3 [Gabriel] Confirmar a assinatura de e-mail do tópico `feedback-alarmes-dev`
+- [x] 6.4 [IA] qa: conferir `State` `Active`, `OptimizationStatus` `On` e `MemorySize` 1024 no alias `live` das três funções, e as linhas `Cliente aquecido` no log da publicação de cada versão, sem WARN de aquecimento
+- [x] 6.5 [IA] qa: conferir que o deploy não mudou a quantidade de itens da tabela, não publicou no tópico de administradores e não criou objeto no bucket; conferir a retenção de 14 dias nos três grupos de dev
+- [x] 6.6 [IA] qa: conferir atributos, política e assinatura do tópico de alarmes, e tentar `get-topic-attributes` sem TLS, conforme D14
+- [x] 6.7 [IA] qa: `set-alarm-state` para ALARM em cada alarme, conferir `NumberOfMessagesPublished` do tópico de alarmes, pedir ao Gabriel a confirmação dos três e-mails e conferir que os alarmes voltaram a OK sozinhos. Antes, conferir com `describe-alarms` que a única ação de cada alarme é o tópico de alarmes do ambiente
+- [x] 6.8 [IA] qa: registrar uma avaliação com texto marcador na descrição; criar o stream `qa-observabilidade-<aaaammdd>` nos três grupos de dev e, pela D14, rodar a janela A (uma linha da aplicação com marcador por grupo, no formato JSON da aplicação, horário atual), conferindo ponto na métrica, os três alarmes em ALARM, os três e-mails e a volta a OK
+- [x] 6.9 [IA] qa: janela B da D14: as duas linhas de plataforma de tempo esgotado em cada grupo, conferindo métrica, ALARM, e-mail e volta a OK; isolar cada formato com `test-metric-filter`
+- [x] 6.10 [IA] qa: janela C da D14: linhas reais de rejeição e de sucesso reproduzidas no stream de teste, requisições 400 pela API e `2026-02-30` no alias `live` do relatório, conferindo que os alarmes ficam em OK e a métrica sem ponto. Conferir também que as invocações com sucesso não geram nenhuma linha WARN ou ERROR no grupo de log
+- [x] 6.11 [IA] qa: item crítico sem `descricao` no alias `live` da notificação, conferindo ALARM e e-mail, e a volta a OK
+- [x] 6.12 [IA] qa: conferir que nenhuma mensagem de alarme, nenhum histórico e nenhum e-mail das janelas contém o texto marcador da 6.8 ou a nota usada
+- [x] 6.13 [IA] qa: conferir uma hora sem invocação e sem linha de teste em dev, sem ALARM e sem publicação no tópico de alarmes
+- [x] 6.14 [IA] qa: conferir o dashboard de dev: widgets da D7, falhas das janelas e restaurações visíveis no período, isolamento por ambiente e ausência do marcador
+- [x] 6.15 [IA] qa: medir, com 1024 MB, a primeira chamada depois da restauração e a duração da restauração em ao menos duas restaurações por função, conforme D13, e comparar com a meta e com a base de 512 MB. Valor acima da meta é registrado e não bloqueia
+- [x] 6.16 [IA] qa: inspecionar as roles das três funções contra as anteriores, o boundary de cada uma e as políticas de deploy de dev
 - [ ] 6.17 [Gabriel] Confirmar no e-mail o recebimento dos alarmes das provas e que nenhum traz descrição ou nota
-- [ ] 6.18 [IA] qa: registrar o relatório de conformidade em `qa.md` deste change, com as linhas de teste usadas, o ID da conta mascarado, e a observação de que o stream de teste expira com a retenção
-- [ ] 6.19 [IA] qa: conferir no console de cobrança, sem a API do Cost Explorer, o uso de Lambda em GB-s do mês com 1024 MB, contra o nível gratuito (cenário "Computação com 1024 MB")
+- [x] 6.18 [IA] qa: registrar o relatório de conformidade em `qa.md` deste change, com as linhas de teste usadas, o ID da conta mascarado, e a observação de que o stream de teste expira com a retenção
+- [ ] 6.19 [IA] qa: conferir no console de cobrança, sem a API do Cost Explorer, o uso de Lambda em GB-s do mês com 1024 MB, contra o nível gratuito (cenário "Computação com 1024 MB"). Não coberto no QA de 06/11/2026: sem acesso ao console de cobrança; indício pelas linhas `REPORT`: 138 invocações e 48,9 GB-s
 
 ## 7. Documentação
 - [x] 7.1 [IA] documentador: registrar no README o tópico de alarmes e a confirmação da assinatura em cada ambiente, o que cada alarme cobre, o dashboard, o namespace por ambiente, o aquecimento, a memória de 1024 MB, a retenção por ambiente e a mudança no boundary

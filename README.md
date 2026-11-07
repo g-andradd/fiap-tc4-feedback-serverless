@@ -2,7 +2,7 @@
 
 Tech Challenge da Fase 4 da pós-graduação em Arquitetura e Desenvolvimento Java (FIAP). Estudantes avaliam aulas com uma descrição e uma nota. Administradores recebem aviso imediato quando a avaliação é crítica e um relatório semanal com a consolidação dos feedbacks.
 
-Estado atual: a função `registrar-avaliacao` está implantada e conferida em dev desde 05/11/2026. O relatório está em `openspec/changes/add-registro-avaliacao/qa.md`. O estado das demais funções está na seção de cada uma. Alarmes, dashboard, aquecimento dos clientes e memória de 1024 MB estão declarados no `template.yaml` e ainda não foram implantados; veja [Monitoramento e alarmes](#monitoramento-e-alarmes).
+Estado atual: a função `registrar-avaliacao` está implantada e conferida em dev desde 05/11/2026. O relatório está em `openspec/changes/add-registro-avaliacao/qa.md`. O estado das demais funções está na seção de cada uma. Alarmes, dashboard, aquecimento dos clientes e memória de 1024 MB foram implantados e conferidos em dev em 06/11/2026; veja [Monitoramento e alarmes](#monitoramento-e-alarmes).
 
 ## Stack
 
@@ -227,7 +227,7 @@ Além da memória, cada função registra um hook do SnapStart (`Aquecimento`, c
 | `gerar-relatorio-semanal` | `GetTopicAttributes` no tópico de administradores | `sns:GetTopicAttributes` no tópico (`AquecerClienteSns`) |
 
 - Nenhuma chamada grava item, publica mensagem ou cria objeto, e nenhuma devolve descrição ou nota. As permissões novas são só de leitura e apontam para recursos com o sufixo do ambiente.
-- Cada cliente aquecido grava uma linha INFO `Cliente aquecido`, com serviço, operação e duração, no grupo de log da função, no momento em que a versão é publicada.
+- Cada cliente aquecido grava uma linha INFO `Cliente aquecido`, com serviço, operação e duração, no grupo de log da função, no momento em que a versão é publicada. Em dev, o aquecimento somou de 1,6 a 1,8 s à publicação de cada versão, tempo que saiu da primeira invocação e não entra no tempo de resposta.
 - Se uma chamada falhar, a função grava WARN `Falha no aquecimento`, só com serviço, classe e código do erro, e segue. A publicação da versão não é interrompida.
 - O SNS só aceita o `GetTopicAttributes` porque o boundary das funções passou a liberar essa ação (veja [Atualizar o bootstrap depois](#atualizar-o-bootstrap-depois)). Sem isso, o deploy passaria do mesmo jeito, e o aquecimento do SNS ficaria só no WARN.
 
@@ -242,7 +242,7 @@ aws logs filter-log-events \
   --region sa-east-1
 ```
 
-O efeito da memória e do aquecimento na primeira chamada depois da restauração ainda não foi medido. Ele será medido em dev, em ao menos duas restaurações por função, e comparado com a meta de metade do tempo máximo de cada cliente: 4 s no registro, 2,5 s na notificação e 5 s no relatório. A meta é referência e não reprova a entrega. Os valores vão para `openspec/changes/add-observabilidade-seguranca/qa.md`. Como memória e aquecimento entram no mesmo deploy, a medição mostra o efeito somado dos dois.
+Medição em dev, em 06/11/2026, com três restaurações por função: a primeira chamada a cada serviço depois da restauração caiu de cerca de 4,3 s para 105 a 339 ms, abaixo da meta de metade do tempo máximo de cada cliente (4 s no registro, 2,5 s na notificação e 5 s no relatório). A duração da restauração ficou na mesma faixa de antes. Como memória e aquecimento entraram no mesmo deploy, o resultado é o efeito somado dos dois. Os números completos estão em `openspec/changes/add-observabilidade-seguranca/qa.md`, item 6.15.
 
 ## Reprocessamento do aviso crítico e limpeza do bucket
 
@@ -487,7 +487,7 @@ Os objetos em `relatorios/` também impedem a exclusão do bucket. Siga o passo 
 
 ## Monitoramento e alarmes
 
-Esta seção descreve o que está declarado no `template.yaml`, validado com `sam validate --lint`. Nada daqui foi implantado ainda. O que depende da stack, como o e-mail recebido, o tempo até o alarme disparar e o dashboard com dados, será confirmado no QA de dev e registrado em `openspec/changes/add-observabilidade-seguranca/qa.md`.
+Tudo o que esta seção descreve foi implantado e conferido em dev em 06/11/2026: tópico, assinatura, filtros, alarmes, dashboard e retenção. O relatório está em `openspec/changes/add-observabilidade-seguranca/qa.md`. O QA confirmou a publicação de cada alarme no tópico e a entrega à assinatura, e a chegada dos e-mails na caixa de entrada ainda depende da conferência do Gabriel. hml e prod ainda não foram implantados.
 
 Cada stack cria os recursos abaixo, todos com o sufixo do ambiente:
 
@@ -546,7 +546,7 @@ Configuração dos três alarmes:
 | `TreatMissingData` | `notBreaching` | Minuto sem dado conta como sem falha. Sem tráfego, o alarme fica em OK |
 | `AlarmActions` | só o tópico de alarmes do ambiente | Nenhum alarme publica no tópico de administradores. Não há aviso de volta a OK |
 
-O alarme volta a OK sozinho cerca de 5 minutos depois da última falha, e cada novo episódio gera um novo e-mail.
+Em dev, o alarme entrou em ALARM cerca de 1 minuto depois da linha de falha e voltou a OK sozinho cerca de 10 minutos depois de entrar em ALARM. Cada novo episódio gera um novo e-mail.
 
 Limites conhecidos:
 
@@ -577,7 +577,9 @@ O dashboard `feedback-painel-<ambiente>` fica no console do CloudWatch, em `sa-e
 | Duração (ms) | `AWS/Lambda` `Duration` das três funções, média e máximo a cada 5 minutos |
 | Restaurações do SnapStart | Consulta do Logs Insights nas linhas `RESTORE_REPORT` dos três grupos de log, com a função e a duração da restauração |
 
-A duração da restauração vem do log porque não existe métrica do CloudWatch para ela, e a métrica `ColdStart` do Powertools não sai com SnapStart. A consulta lê só as linhas `RESTORE_REPORT`, e os outros widgets são contagens e durações, então o dashboard não mostra descrição, nota nem corpo de mensagem. A consulta roda a cada abertura do dashboard e consome a cota gratuita de dados lidos do Logs Insights. Na conferência feita durante o design, sobre três dias de log de dev, ela leu 155 KB.
+A duração da restauração vem do log porque não existe métrica do CloudWatch para ela, e a métrica `ColdStart` do Powertools não sai com SnapStart. A consulta lê só as linhas `RESTORE_REPORT`, e os outros widgets são contagens e durações, então o dashboard não mostra descrição, nota nem corpo de mensagem. A consulta roda a cada abertura do dashboard e consome a cota gratuita de dados lidos do Logs Insights. No QA de dev, ela leu 44 KB.
+
+O prefixo `SOURCE '...' |` da consulta só vale no widget do dashboard. A API `StartQuery` recusa esse texto com `MalformedQueryException`. Para rodar a mesma consulta pela CLI, comece em `filter` e passe os três grupos de log em `--log-group-names` do `aws logs start-query`.
 
 ### Retenção dos logs
 
@@ -629,7 +631,7 @@ aws cloudwatch set-alarm-state \
   --region sa-east-1
 ```
 
-Na avaliação seguinte, cerca de um minuto depois, o alarme recalcula a partir da métrica. Sem falha na janela, volta a OK sozinho.
+Na avaliação seguinte, o alarme recalcula a partir da métrica. Sem falha na janela, volta a OK sozinho: em dev, levou de 60 a 80 segundos.
 
 **2. Caminho da linha de log até o alarme, com `put-log-events`.** Grava uma linha que casa com o filtro num log stream de teste dentro do grupo da função. O filtro vale para todos os streams do grupo, então a linha percorre o mesmo caminho de uma falha real: filtro, métrica, alarme e e-mail.
 
@@ -655,7 +657,7 @@ cat > evento-alarme.json <<EOF
 ]
 EOF
 
-aws logs put-log-events \
+AWS_CLI_FILE_ENCODING=UTF-8 aws logs put-log-events \
   --log-group-name "$GRUPO" \
   --log-stream-name "$STREAM" \
   --log-events file://evento-alarme.json \
@@ -663,10 +665,11 @@ aws logs put-log-events \
 ```
 
 - Se o stream do dia já existir, o `create-log-stream` falha com `ResourceAlreadyExistsException`. Siga direto para o `put-log-events`.
+- No Windows, o AWS CLI lê o arquivo de `file://` em cp1252. O `AWS_CLI_FILE_ENCODING=UTF-8` na frente do `put-log-events` é o que mantém os acentos: sem ele, uma linha com acento, como a mensagem real `Falha ao registrar avaliação`, chega ao grupo com dupla codificação.
 - O `timestamp` precisa ser o horário atual, em milissegundos. Uma linha com horário antigo cai fora da janela de 5 minutos e não dispara. Uma com horário futuro deixa o alarme em ALARM até aquele horário.
 - A linha não pode ter descrição, nota nem corpo de mensagem. O `function_request_id` com o nome do teste identifica a linha para quem ler o grupo depois.
 - Para testar o caminho do tempo esgotado, troque `message` por uma linha de texto com `Task timed out`, como `qa-observabilidade-manual Task timed out after 10.01 seconds`.
-- Grave uma linha por vez e espere os alarmes voltarem a OK antes do próximo teste, cerca de 5 minutos depois do último ponto.
+- Grave uma linha por vez e espere os alarmes voltarem a OK antes do próximo teste, de 10 a 11 minutos depois do minuto da linha.
 - A linha aparece também no widget de falhas do dashboard, no minuto em que foi gravada.
 - **O stream de teste não é apagado.** Ele expira junto com a retenção do grupo: 14 dias em dev e hml, 30 em prod. Apague o arquivo `evento-alarme.json` ao terminar.
 
