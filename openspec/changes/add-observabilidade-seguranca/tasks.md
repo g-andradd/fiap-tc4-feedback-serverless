@@ -74,6 +74,6 @@ Regra da seção 6, decisão do Gabriel de 05/11/2026: nada é alterado nas fun�
 - [x] 7.4 [IA] documentador: acrescentar ao roteiro do vídeo a abertura do dashboard e um alarme disparado com `set-alarm-state`, lembrando que ele gera e-mail
 
 ## 8. hml e prod (na release)
-- [ ] 8.1 [Gabriel] Confirmar a assinatura do tópico de alarmes de hml e de prod quando cada stack for implantada
-- [ ] 8.2 [IA] qa: com dev e hml implantados, gravar uma linha com marcador num stream de teste do grupo de dev e conferir que o alarme e o dashboard de hml não mudam (cenário "Falha em outro ambiente")
+- [x] 8.1 [Gabriel] Confirmar a assinatura do tópico de alarmes de hml e de prod quando cada stack for implantada. hml confirmada pelo Gabriel em 07/11/2026, conferida às 05:49 UTC; a de prod ainda será confirmada no deploy em prod
+- [x] 8.2 [IA] qa: com dev e hml implantados, gravar uma linha com marcador num stream de teste do grupo de dev e conferir que o alarme e o dashboard de hml não mudam (cenário "Falha em outro ambiente")
 - [ ] 8.3 [IA] qa: conferir a retenção de 30 dias nos três grupos de prod

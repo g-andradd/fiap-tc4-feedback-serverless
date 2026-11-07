@@ -1,9 +1,10 @@
 # QA: add-observabilidade-seguranca
 
-Duas rodadas:
+Três rodadas:
 
 - **Local, tarefas 5.1 a 5.3:** 06/11/2026, sobre o working tree do worktree `fiap-tc4-observabilidade`, branch `feature/add-observabilidade-seguranca`, sem commit. Nada foi escrito na AWS nessa rodada.
 - **Dev, tarefas 6.4 a 6.19, exceto a 6.17, que é do Gabriel:** 06/11/2026, na stack `feedback-dev`, sobre a execução 42278391413 do workflow Deploy (merge `e15f842` do PR #13 em `develop`, `success`, das 19:18:00 às 19:22:06 UTC, região `sa-east-1`). Feita no worktree `fiap-tc4-qa-observabilidade`, branch `feature/add-observabilidade-seguranca-qa`.
+- **Release, tarefas 8.1 e 8.2:** 07/11/2026, com `feedback-dev` e `feedback-hml` no ar ao mesmo tempo. `feedback-hml` foi criada pela execução 42335524756 do Deploy (push em `release/1.0.0`, commit `b730a59`, `success`, `CREATE_COMPLETE` às 03:51:37 UTC). Feita no checkout principal, branch `release/1.0.0`. Está em "Conferência na release (07/11/2026)". A validade da evidência dessa rodada vale só para ela e está descrita lá.
 
 **Validade da evidência da stack:**
 - **Deploy:** a stack foi de `UPDATE_IN_PROGRESS` às 19:19:58 a `UPDATE_COMPLETE` às 19:21:59 UTC. O CloudTrail mostra `CreateChangeSet`, `ExecuteChangeSet`, `CreateTopic`, `Subscribe`, os 3 `PutMetricFilter`, os 3 `PutMetricAlarm` e o `PutDashboard` feitos pela role `github-deploy-feedback-dev`.
@@ -13,22 +14,28 @@ Duas rodadas:
 
 ## Resultado
 
-| Status | Quantidade |
-|---|---|
-| ok (executado) | 54 |
-| dos quais, executados também na stack ou no CI | 50 |
-| dos quais, executados só nos testes, com clientes simulados | 4 |
-| ok (por configuração) | 5 |
-| não coberto | 3 |
-| pendente do Gabriel | 1 |
-| falha | 0 |
-| **Total de cenários** | **63** |
+Atualizado em 07/11/2026 com a rodada da release.
 
-Por spec: `observabilidade` 47 (40 executados, 3 por configuração, 3 não cobertos, 1 pendente do Gabriel), `seguranca` 13 (13, 0, 0, 0) e `entrega-continua` 3 (1, 2, 0, 0).
+| Status | 06/11/2026 | 07/11/2026 |
+|---|---|---|
+| ok (executado) | 54 | 56 |
+| dos quais, executados também na stack ou no CI | 50 | 52 |
+| dos quais, executados só nos testes, com clientes simulados | 4 | 4 |
+| ok (por configuração) | 5 | 4 |
+| não coberto | 3 | 2 |
+| pendente do Gabriel | 1 | 1 |
+| falha | 0 | 0 |
+| **Total de cenários** | **63** | **63** |
 
-**O change ainda não está conforme como um todo:** cenário sem cobertura conta como falha, e há 3 nessa condição:
-- `Falha em outro ambiente` e `Retenção em prod`: só fecham na release, tarefas 8.2 e 8.3, como a própria spec prevê.
+Mudanças de 07/11: `Falha em outro ambiente` saiu de não coberto e `Inspeção das definições` saiu de por configuração, as duas para ok (executado), com a stack `feedback-hml` implantada. A conclusão da 8.1 em hml, às 05:50, acrescentou evidência de hml a três cenários e não mudou nenhum status.
+
+Por spec, em 07/11: `observabilidade` 47 (42 executados, 2 por configuração, 2 não cobertos, 1 pendente do Gabriel), `seguranca` 13 (13, 0, 0, 0) e `entrega-continua` 3 (1, 2, 0, 0).
+
+**O change ainda não está conforme como um todo:** cenário sem cobertura conta como falha, e há 2 nessa condição:
+- `Retenção em prod`: só fecha com `feedback-prod`, tarefa 8.3, como a própria spec prevê.
 - `Computação com 1024 MB`: o QA não tem acesso ao console de cobrança, e a API do Cost Explorer ficou fora por regra. Ver a 6.19.
+
+**Tarefa 8.1 completa em hml, prod pendente:** a assinatura do tópico de alarmes de hml, pendente até 05:18 UTC de 07/11, foi confirmada pelo Gabriel em 07/11/2026 e conferida às 05:49 UTC. O `set-alarm-state` de um alarme de hml às 05:50 publicou e entregou 1 mensagem no tópico de alarmes de hml, sem falha de entrega. Os cenários correspondentes, `Assinatura criada no deploy`, `Alarme em ALARM notifica` e `Publicação pelo CloudWatch mantida`, ganham a réplica em hml, mas os totais não mudam: os dois primeiros já tinham o status definido pela evidência de dev, e `Alarme em ALARM notifica` segue pendente do Gabriel pela caixa de entrada de dev (6.17). Ver "8.1".
 
 **Pendente do Gabriel:** `Alarme em ALARM notifica`. O QA confirmou cada publicação no tópico de alarmes e a entrega à assinatura, sem nenhuma falha de entrega. Que o e-mail chegou na caixa de entrada só o Gabriel confere, na tarefa 6.17. A lista dos 12 e-mails está em "E-mails para o Gabriel conferir (6.17)".
 
@@ -337,6 +344,50 @@ Indício, que não substitui o console: soma das linhas `REPORT` dos três grupo
 
 Limites mensais do nível gratuito do Lambda, pela D8: 1 milhão de requisições e 400.000 GB-s.
 
+## Conferência na release (07/11/2026)
+
+**Validade da evidência:** observação das 03:57 às 05:20 UTC de 07/11/2026 (00:57 às 02:20 em Brasília), com `feedback-dev` (`UPDATE_COMPLETE` desde 06/11 às 19:21) e `feedback-hml` (`CREATE_COMPLETE` às 03:51:37) no ar. O relógio da máquina seguia cerca de 7 s adiantado: a linha da 8.2 tem `timestamp` 04:48:45.377 e `ingestionTime` 04:48:38.717, no mesmo minuto. A fumaça da release em hml, com o registro, o relatório e o isolamento de recursos, está em `openspec/changes/add-fundacao-projeto/qa.md`, seção "Release 1.0.0 em hml (07/11/2026)". A 8.1 teve uma segunda rodada, das 05:50 às 05:54 UTC (02:50 às 02:54 em Brasília), depois da confirmação da assinatura de alarmes de hml. **Escritas desta seção:** 1 log stream `qa-observabilidade-20261107` no grupo do registro de dev, com 1 linha, e 1 `set-alarm-state` em `feedback-falha-registrar-avaliacao-hml`. Nenhum alarme, dashboard ou filtro criado, nada apagado.
+
+### 8.1. Assinaturas de hml: ok em hml, prod pendente
+
+Tarefa do Gabriel. O QA conferiu o estado pela API:
+
+| Tópico | Estado da assinatura `email` | `SubscriptionsConfirmed`, `Pending`, `Deleted` |
+|---|---|---|
+| `feedback-admins-hml` | confirmada, já na primeira leitura, às 04:07 UTC | 1, 0, 0 |
+| `feedback-alarmes-hml` | `PendingConfirmation` em quatro leituras, às 04:07, 04:17, 04:54 e 05:18 UTC. **Confirmada pelo Gabriel em 07/11/2026** pelo e-mail original de confirmação, conferida pelo orquestrador às 05:49:52 e pelo QA às 05:50:12 UTC | 0, 1, 1 até 05:18; 1, 0, 0 a partir de 05:49 |
+
+As duas assinaturas foram criadas às 03:48:52 pela sessão `github-deploy-feedback-hml/deploy-42335524756`, e a mensagem de confirmação do tópico de alarmes foi entregue às 03:48 (`NumberOfNotificationsDelivered` 1, `NumberOfNotificationsFailed` 0). O orquestrador tinha informado as duas como confirmadas antes da primeira rodada, mas só a de administradores estava. Com a confirmação, o QA rodou o `set-alarm-state` da fumaça em um único alarme de hml:
+
+| Conferência | Resultado |
+|---|---|
+| Linha de base, 05:50:12 | Os seis alarmes de dev e hml em OK |
+| Transição | `feedback-falha-registrar-avaliacao-hml` de OK para ALARM às 05:50:37.214, motivo `QA release 1.0.0 set-alarm-state: teste do caminho do alarme ate o e-mail` |
+| Ação | `Successfully executed action arn:aws:sns:sa-east-1:<conta>:feedback-alarmes-hml`, `Succeeded`, às 05:50:37.247 |
+| Tópico de alarmes de hml | `NumberOfMessagesPublished` 1, `NumberOfNotificationsDelivered` 1 e `NumberOfNotificationsFailed` 0 às 05:50 |
+| Outros tópicos | Nenhuma publicação no tópico de alarmes de dev nem no de administradores de hml entre 05:30 e 05:53 |
+| Mensagem | Variantes `default`, `email` e `sms`, só com dados do alarme. `AlarmActions` só com `feedback-alarmes-hml`. Nenhuma ocorrência dos marcadores da fumaça, de `Aula`, `descricao` ou `"nota"` |
+| Volta a OK | Sozinha às 05:50:41.426, 4 s depois, `no datapoints were received for 5 periods`. Em dev, de 60 a 80 s |
+
+Isso prova, em hml, a política `PublicacaoPelosAlarmesDoAmbiente` com `aws:SourceArn` em `alarm:feedback-*-hml`, a ação do alarme e a entrega à assinatura confirmada. Que o e-mail chegou na caixa de entrada, só o Gabriel confere. **A 8.1 fica completa em hml.** Falta prod, que ainda não existe.
+
+### 8.2. Falha em outro ambiente: ok
+
+**Linha de base**, às 04:47:47, antes da linha: os seis alarmes em OK. `FeedbackServerless/dev` e `FeedbackServerless/hml` sem nenhum ponto nas três métricas de falha desde 03:00. O histórico dos alarmes de hml só tinha a criação, às 03:48:54, e a passagem de `INSUFFICIENT_DATA` para OK, entre 03:49:46 e 03:50:16. O corpo de `feedback-painel-hml`, lido com `get-dashboard`, só cita os três alarmes `-hml`, `AWS/Lambda` por `FunctionName` `-hml`, `FeedbackServerless/hml` e os três grupos `-hml`, sem nenhum `-dev` ou `/dev`.
+
+**Linha de teste.** Stream `qa-observabilidade-20261107`, criado pelo QA às 04:48 no grupo `/aws/lambda/feedback-registrar-avaliacao-dev`. Uma linha da aplicação no formato da janela A2 (`Falha ao registrar avaliação`, `"alarme":"FALHA_FUNCAO"`, `function_version` 7), com `function_request_id` e `xray_trace_id` `qa-observabilidade-8-2-registrar-avaliacao` e o horário do envio, gravada com `AWS_CLI_FILE_ENCODING=UTF-8`. A linha lida de volta do grupo é idêntica à enviada, com o acento correto. O texto está em "Linhas de teste usadas".
+
+| Conferência | dev | hml |
+|---|---|---|
+| Métrica `FalhasRegistrarAvaliacao` | 1,0 às 04:48 em `FeedbackServerless/dev` | nenhum ponto em `FeedbackServerless/hml`, de 03:45 a 05:30 |
+| Alarme do registro | `feedback-falha-registrar-avaliacao-dev`: ALARM às 04:49:29, motivo `1 out of the last 5 datapoints [1.0 (07/11/26 04:48:00)]`, ação `Successfully executed action arn:aws:sns:sa-east-1:<conta>:feedback-alarmes-dev`. OK às 04:59:29, `no datapoints were received for 5 periods` | `feedback-falha-registrar-avaliacao-hml` em OK do início ao fim, `StateUpdatedTimestamp` ainda 03:50:06. Nenhum item de histórico depois da criação nos três alarmes de hml |
+| Outros alarmes | notificação e relatório de dev em OK, sem transição | notificação e relatório de hml em OK, sem transição |
+| Tópico de alarmes | `feedback-alarmes-dev`: 1 publicada, 1 entregue e 0 falhas às 04:49 | `feedback-alarmes-hml`: nenhuma publicação |
+| Tópico de administradores | nenhuma publicação | nenhuma publicação depois do relatório das 04:27 |
+| Dashboard | | Widget de falhas, pelas mesmas três métricas, `Sum` e 60 s (`get-metric-data`): nenhum ponto de 03:45 a 05:30. Widget de invocações do registro: só as 2 requisições da fumaça, às 04:15 no período de 5 min. Consulta de restaurações, rodada a partir do `filter` nos três grupos `-hml`: 3 linhas, as restaurações reais da fumaça (617,70, 785,48 e 710,17 ms), sem nada de dev |
+
+O alarme de dev voltou a OK 10 minutos depois de entrar em ALARM, como na observação K. O dashboard de hml foi lido pela API, sem console (observação M).
+
 ## E-mails para o Gabriel conferir (6.17)
 
 Assinatura do tópico `feedback-alarmes-dev`. Devem ter chegado **exatamente 12 e-mails de alarme**, todos com o assunto `ALARM: "feedback-falha-<função>-dev" in South America (Sao Paulo)`, e nenhum de volta a OK, porque os alarmes não têm `OKActions`.
@@ -362,7 +413,11 @@ Em cada e-mail, conferir:
 - **Nenhuma nota.**
 - Os acentos da descrição do alarme aparecem corretos.
 
-No mesmo período chegam também, pelo tópico de administradores, 3 e-mails `Avaliação crítica registrada` (19:41, 19:57 e 20:28 UTC) e 3 `Relatório semanal 2026-11-06` (19:41, 19:57 e 20:28 UTC). Esses são da 6.15 e não fazem parte da 6.17. O e-mail de alarme traz o ID da conta e o ARN, e o rodapé do SNS traz o link de cancelamento com o e-mail do assinante: não copiar para arquivo versionado e desfocar no vídeo.
+No mesmo período chegam também, pelo tópico de administradores, 3 e-mails `Avaliação crítica registrada` (19:41, 19:57 e 20:28 UTC) e 3 `Relatório semanal 2026-11-06` (19:41, 19:57 e 20:28 UTC). Esses são da 6.15 e não fazem parte da 6.17.
+
+Fora da lista da 6.17, a tarefa 8.2 gerou mais 1 e-mail de alarme na mesma assinatura de dev: `ALARM: "feedback-falha-registrar-avaliacao-dev" in South America (Sao Paulo)`, em 07/11/2026 às 04:49:29 UTC (01:49:29 em Brasília), com o motivo `... [1.0 (07/11/26 04:48:00)] ...`. A 8.1 gerou 1 e-mail de alarme na assinatura de hml: `ALARM: "feedback-falha-registrar-avaliacao-hml" in South America (Sao Paulo)`, em 07/11/2026 às 05:50:37 UTC (02:50:37 em Brasília), com o motivo `QA release 1.0.0 set-alarm-state: teste do caminho do alarme ate o e-mail`. Nenhum dos dois traz descrição ou nota.
+
+O e-mail de alarme traz o ID da conta e o ARN, e o rodapé do SNS traz o link de cancelamento com o e-mail do assinante: não copiar para arquivo versionado e desfocar no vídeo.
 
 ## Linhas de teste usadas
 
@@ -404,6 +459,14 @@ Stream `qa-observabilidade-20261106` em cada grupo de dev. `function_arn` com a 
 ```
 
 Os blocos acima mostram o texto como foi enviado. No grupo, a linha A do registro e as linhas A e C do relatório ficaram com o acento do campo `message` em dupla codificação, como `avaliaÃ§Ã£o`. As linhas A2 ficaram corretas (observação L).
+
+**Tarefa 8.2, 07/11/2026.** Stream `qa-observabilidade-20261107`, só em `/aws/lambda/feedback-registrar-avaliacao-dev`, 1 linha, com o acento correto no grupo:
+
+```
+04:48:45.377 (8.2)  {"level":"ERROR","message":"Falha ao registrar avaliação","cold_start":false,"function_arn":"arn:aws:lambda:sa-east-1:<conta>:function:feedback-registrar-avaliacao-dev:live","function_memory_size":1024,"function_name":"feedback-registrar-avaliacao-dev","function_request_id":"qa-observabilidade-8-2-registrar-avaliacao","function_version":"7","service":"registrar-avaliacao","timestamp":"2026-11-07T04:48:45.377Z","xray_trace_id":"qa-observabilidade-8-2-registrar-avaliacao","classe":"software.amazon.awssdk.services.dynamodb.model.DynamoDbException","codigoErro":"qa-observabilidade","idRequisicao":"qa-observabilidade","alarme":"FALHA_FUNCAO"}
+```
+
+O stream expira com a retenção de 14 dias, por volta de 21/11/2026.
 
 ## Verificações locais (tarefa 5.3)
 
@@ -456,13 +519,13 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
 | Tópico criado no deploy | ok (executado) | `feedback-alarmes-dev`, criado às 19:20:02 pelo deploy, diferente de `feedback-admins-dev` (6.6) | INSP |
-| Assinatura criada no deploy | ok (executado) | 1 assinatura `email` para `EmailAdmin`, confirmada pelo Gabriel na 6.3. A mensagem de confirmação foi entregue às 19:20 (6.6) | INSP |
+| Assinatura criada no deploy | ok (executado) | 1 assinatura `email` para `EmailAdmin`, confirmada pelo Gabriel na 6.3. A mensagem de confirmação foi entregue às 19:20 (6.6). Em hml, 8.1: assinatura criada às 03:48:52 de 07/11, mensagem de confirmação entregue às 03:48 e confirmada pelo Gabriel, conferida às 05:49 UTC | INSP em dev e hml |
 
 ### Notificação dos alarmes
 
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
-| Alarme em ALARM notifica | **pendente do Gabriel** | `set-alarm-state` nos três: 3 ações `Succeeded`, 3 publicações e 3 entregas às 19:42, 0 falhas de entrega (6.7). Falta a caixa de entrada | STACK. E-MAIL, 6.17 |
+| Alarme em ALARM notifica | **pendente do Gabriel** | `set-alarm-state` nos três: 3 ações `Succeeded`, 3 publicações e 3 entregas às 19:42, 0 falhas de entrega (6.7). Réplica em hml em 07/11 (8.1): 1 alarme, ação `Succeeded`, 1 publicação e 1 entrega às 05:50, 0 falhas. Falta a caixa de entrada de dev | STACK. E-MAIL, 6.17 |
 | Destino das ações de alarme | ok (executado) | `describe-alarms`: `AlarmActions` só com `feedback-alarmes-dev`, `OKActions` e `InsufficientDataActions` vazias. As 12 mensagens publicadas trazem a mesma lista (6.7, 6.12) | INSP |
 
 ### Alarme de falha do registro
@@ -506,8 +569,8 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
-| Inspeção das definições | ok (por configuração) | O cenário fala da stack `feedback-hml`, que não existe. Sonda com `Stage=hml`: alarmes e filtros em `FeedbackServerless/hml`, filtros nos grupos `-hml`, widgets só com `AWS/Lambda` por `FunctionName` da stack ou `FeedbackServerless/hml`, consulta só nos grupos `-hml`. Em dev, os recursos implantados resolvem o mesmo template para o sufixo `dev` e o namespace `FeedbackServerless/dev` (6.4, 6.7, 6.14) | CONFIG. Inspeção em hml na release |
-| Falha em outro ambiente | **não coberto** | A spec adia a prova para a release | RELEASE, 8.2 |
+| Inspeção das definições | ok (executado) | Em 07/11, na stack `feedback-hml` implantada: os três alarmes em `FeedbackServerless/hml`, com ação só em `feedback-alarmes-hml`; os três filtros nos grupos `-hml`, publicando em `FeedbackServerless/hml`; o dashboard `feedback-painel-hml` só com os ARNs dos alarmes `-hml`, `AWS/Lambda` por `FunctionName` `-hml` e `FeedbackServerless/hml`, e a consulta só nos três grupos `-hml`. Nenhuma referência a `-dev` ou `/dev` no corpo do dashboard (8.2). Antes, por configuração, com a sonda em `Stage=hml` | INSP em hml |
+| Falha em outro ambiente | ok (executado) | 8.2: linha com o marcador no grupo do registro de dev às 04:48. Ponto 1,0 em `FeedbackServerless/dev` `FalhasRegistrarAvaliacao`, ALARM de dev às 04:49:29 com publicação no tópico de alarmes de dev. Em hml: `feedback-falha-registrar-avaliacao-hml` em OK do início ao fim, sem item de histórico depois da criação; `FeedbackServerless/hml` `FalhasRegistrarAvaliacao` sem ponto; os widgets de hml, pelas mesmas métricas, sem a falha; tópico de alarmes de hml sem publicação | STACK, LINHA. Dashboard de hml lido pela API, sem console (observação M) |
 
 ### Invocação sem falha sem log em WARN
 
@@ -594,7 +657,7 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
-| Publicação pelo CloudWatch mantida | ok (executado) | 12 transições para ALARM, 12 ações `Succeeded` e 12 publicações no tópico de alarmes, 0 falhas de entrega | STACK |
+| Publicação pelo CloudWatch mantida | ok (executado) | 12 transições para ALARM, 12 ações `Succeeded` e 12 publicações no tópico de alarmes, 0 falhas de entrega. Em 07/11, mais 1 em dev (8.2) e 1 em hml (8.1), as duas `Succeeded`, entregues e sem falha | STACK em dev e hml |
 | Permissão restrita à conta | ok (executado) | Único `Allow`: `sns:Publish` para `cloudwatch.amazonaws.com`, com `aws:SourceAccount` da conta e `aws:SourceArn` em `alarm:feedback-*-dev`. Nenhum `Allow` para `*` (6.6) | INSP |
 
 ### Dashboard sem dado do aluno
@@ -632,7 +695,7 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 
 | Situação | Cenários |
 |---|---|
-| Só a release fecha (2) | `Falha em outro ambiente` (8.2), `Retenção em prod` (8.3) |
+| Só prod fecha (1) | `Retenção em prod` (8.3) |
 | Sem acesso do QA (1) | `Computação com 1024 MB` (6.19, console de cobrança) |
 | Pendente do Gabriel (1) | `Alarme em ALARM notifica` (6.17) |
 
