@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - release/**
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  # O nome do job é o check obrigatório da proteção de branch. Renomear aqui exige ajustar a proteção.
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: corretto
+          java-version: "25"
+          cache: maven
+
+      # install, e não verify: o sam build resolve o módulo dominio pelo repositório Maven local.
+      - name: Build, testes e install no repositório Maven local
+        run: mvn -B install
+
+      - uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+
+      # Não chama a AWS: o CI continua sem credencial. Pega no PR o erro de empacotamento.
+      - name: Empacotar as funções
+        run: sam build
+
+      - name: Validar template da aplicação
+        run: sam validate --lint --region sa-east-1
+
+      - name: Validar template de bootstrap
+        run: sam validate --lint --region sa-east-1 -t infra/bootstrap/github-oidc.yaml

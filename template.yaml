@@ -1,0 +1,526 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Plataforma de feedback de aulas. Recursos de suporte de um ambiente.
+
+Parameters:
+  Stage:
+    Type: String
+    Description: Ambiente da stack. Entra como sufixo no nome de todos os recursos.
+    AllowedValues:
+      - dev
+      - hml
+      - prod
+  EmailAdmin:
+    Type: String
+    NoEcho: true
+    Description: E-mail que assina o tópico de administradores. Vem do secret EMAIL_ADMIN do ambiente no GitHub.
+    AllowedPattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+    ConstraintDescription: precisa ser um endereço de e-mail válido.
+
+Conditions:
+  EhProd: !Equals [!Ref Stage, prod]
+
+# As roles de deploy só criam role de função com este boundary, definido em
+# infra/bootstrap/github-oidc.yaml. Sem ele, o deploy da primeira função é negado.
+Globals:
+  Function:
+    PermissionsBoundary: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/feedback-limite-funcoes-${Stage}
+    Runtime: java25
+    Architectures:
+      - x86_64
+    MemorySize: 1024
+    Timeout: 30
+    Tracing: Active
+    AutoPublishAlias: live
+    SnapStart:
+      ApplyOn: PublishedVersions
+    Environment:
+      Variables:
+        AMBIENTE: !Ref Stage
+        POWERTOOLS_LOG_LEVEL: INFO
+        POWERTOOLS_METRICS_NAMESPACE: !Sub FeedbackServerless/${Stage}
+
+Resources:
+  TabelaAvaliacoes:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub feedback-avaliacoes-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: dataEnvio
+          AttributeType: S
+        - AttributeName: criadoEm
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: por-data
+          KeySchema:
+            - AttributeName: dataEnvio
+              KeyType: HASH
+            - AttributeName: criadoEm
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !If [EhProd, true, false]
+
+  TopicoAdmins:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub feedback-admins-${Stage}
+      KmsMasterKeyId: alias/aws/sns
+
+  AssinaturaEmailAdmin:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref TopicoAdmins
+      Protocol: email
+      Endpoint: !Ref EmailAdmin
+
+  BucketRelatorios:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      BucketName: !Sub feedback-relatorios-${AWS::AccountId}-${Stage}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  PoliticaBucketRelatorios:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BucketRelatorios
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: NegaAcessoSemTls
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt BucketRelatorios.Arn
+              - !Sub ${BucketRelatorios.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  ApiAvaliacoes:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: !Sub feedback-api-${Stage}
+      FailOnWarnings: true
+      Tags:
+        ambiente: !Ref Stage
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+
+  LogRegistrarAvaliacao:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/feedback-registrar-avaliacao-${Stage}
+      RetentionInDays: !If [EhProd, 30, 14]
+
+  RegistrarAvaliacao:
+    Type: AWS::Serverless::Function
+    DependsOn: LogRegistrarAvaliacao
+    Properties:
+      FunctionName: !Sub feedback-registrar-avaliacao-${Stage}
+      CodeUri: functions/registrar-avaliacao
+      Handler: br.com.fiap.feedback.registro.RegistrarAvaliacaoHandler::handleRequest
+      Timeout: 10
+      AutoPublishAliasAllProperties: true
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: registrar-avaliacao
+          TABELA_AVALIACOES: !Ref TabelaAvaliacoes
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: GravarAvaliacao
+              Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt TabelaAvaliacoes.Arn
+            - Sid: AquecerCliente
+              Effect: Allow
+              Action: dynamodb:DescribeTable
+              Resource: !GetAtt TabelaAvaliacoes.Arn
+      Events:
+        PostAvaliacao:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ApiAvaliacoes
+            Method: POST
+            Path: /avaliacao
+            PayloadFormatVersion: "2.0"
+
+  LogNotificarCritica:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/feedback-notificar-critica-${Stage}
+      RetentionInDays: !If [EhProd, 30, 14]
+
+  NotificarCritica:
+    Type: AWS::Serverless::Function
+    DependsOn: LogNotificarCritica
+    Properties:
+      FunctionName: !Sub feedback-notificar-critica-${Stage}
+      CodeUri: functions/notificar-critica
+      Handler: br.com.fiap.feedback.notificacao.NotificarCriticaHandler::handleRequest
+      AutoPublishAliasAllProperties: true
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: notificar-critica
+          TOPICO_ADMINS_ARN: !Ref TopicoAdmins
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: PublicarNoTopico
+              Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref TopicoAdmins
+            - Sid: UsarChaveDoTopico
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey*
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub sns.${AWS::Region}.amazonaws.com
+            - Sid: GuardarLoteDescartado
+              Effect: Allow
+              Action: s3:PutObject
+              # O Lambda valida PutObject no bucket inteiro ao criar o mapeamento
+              # e recusa o prefixo aws/lambda/*.
+              Resource: !Sub ${BucketRelatorios.Arn}/*
+              Condition:
+                StringEquals:
+                  s3:ResourceAccount: !Ref AWS::AccountId
+            - Sid: ListarBucketDoDestino
+              Effect: Allow
+              Action: s3:ListBucket
+              Resource: !GetAtt BucketRelatorios.Arn
+              Condition:
+                StringEquals:
+                  s3:ResourceAccount: !Ref AWS::AccountId
+            - Sid: AquecerCliente
+              Effect: Allow
+              Action: sns:GetTopicAttributes
+              Resource: !Ref TopicoAdmins
+      Events:
+        AvaliacaoCriada:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt TabelaAvaliacoes.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+            BisectBatchOnFunctionError: true
+            MaximumRetryAttempts: 5
+            MaximumRecordAgeInSeconds: 3600
+            # Sem Type de propósito: o SAM geraria uma política própria, e a que vale é a de cima.
+            DestinationConfig:
+              OnFailure:
+                Destination: !GetAtt BucketRelatorios.Arn
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"eventName":["INSERT"],"dynamodb":{"NewImage":{"urgencia":{"S":["CRITICA"]}}}}'
+
+  LogGerarRelatorioSemanal:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/feedback-gerar-relatorio-semanal-${Stage}
+      RetentionInDays: !If [EhProd, 30, 14]
+
+  GerarRelatorioSemanal:
+    Type: AWS::Serverless::Function
+    DependsOn: LogGerarRelatorioSemanal
+    Properties:
+      FunctionName: !Sub feedback-gerar-relatorio-semanal-${Stage}
+      CodeUri: functions/gerar-relatorio-semanal
+      Handler: br.com.fiap.feedback.relatorio.GerarRelatorioSemanalHandler::handleRequest
+      Timeout: 120
+      AutoPublishAliasAllProperties: true
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: gerar-relatorio-semanal
+          TABELA_AVALIACOES: !Ref TabelaAvaliacoes
+          BUCKET_RELATORIOS: !Ref BucketRelatorios
+          TOPICO_ADMINS_ARN: !Ref TopicoAdmins
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Sid: ConsultarIndicePorData
+              Effect: Allow
+              Action: dynamodb:Query
+              Resource: !Sub ${TabelaAvaliacoes.Arn}/index/por-data
+            - Sid: GravarRelatorio
+              Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub ${BucketRelatorios.Arn}/relatorios/*
+            - Sid: PublicarNoTopico
+              Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref TopicoAdmins
+            - Sid: UsarChaveDoTopico
+              Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey*
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub sns.${AWS::Region}.amazonaws.com
+            - Sid: AquecerClienteSns
+              Effect: Allow
+              Action: sns:GetTopicAttributes
+              Resource: !Ref TopicoAdmins
+            - Sid: AquecerClienteS3
+              Effect: Allow
+              Action: s3:ListBucket
+              Resource: !GetAtt BucketRelatorios.Arn
+              Condition:
+                StringEquals:
+                  s3:ResourceAccount: !Ref AWS::AccountId
+      Events:
+        Agenda:
+          Type: ScheduleV2
+          Properties:
+            Name: !Sub feedback-relatorio-semanal-${Stage}
+            Description: Relatório semanal, toda segunda às 08:00 em São Paulo
+            ScheduleExpression: cron(0 8 ? * MON *)
+            ScheduleExpressionTimezone: America/Sao_Paulo
+            State: ENABLED
+            Input: '{}'
+            FlexibleTimeWindow:
+              Mode: "OFF"
+            RetryPolicy:
+              MaximumRetryAttempts: 3
+              MaximumEventAgeInSeconds: 3600
+            # Globals não alcança esta role. Sem o boundary aqui, iam:CreateRole é negado.
+            PermissionsBoundary: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/feedback-limite-funcoes-${Stage}
+
+  # Sem KmsMasterKeyId de propósito: o CloudWatch não publica em tópico com alias/aws/sns,
+  # e a mensagem de alarme não carrega dado do aluno.
+  TopicoAlarmes:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub feedback-alarmes-${Stage}
+
+  PoliticaTopicoAlarmes:
+    Type: AWS::SNS::TopicInlinePolicy
+    Properties:
+      TopicArn: !Ref TopicoAlarmes
+      PolicyDocument:
+        Version: "2012-10-17"
+        Id: !Sub feedback-alarmes-${Stage}-politica
+        Statement:
+          # Lista explícita: a referência do SNS não documenta curinga em política de tópico.
+          - Sid: NegaAcessoSemTls
+            Effect: Deny
+            Principal: "*"
+            Action:
+              - sns:AddPermission
+              - sns:DeleteTopic
+              - sns:GetDataProtectionPolicy
+              - sns:GetTopicAttributes
+              - sns:ListSubscriptionsByTopic
+              - sns:ListTagsForResource
+              - sns:Publish
+              - sns:PutDataProtectionPolicy
+              - sns:RemovePermission
+              - sns:SetTopicAttributes
+              - sns:Subscribe
+            Resource: !Ref TopicoAlarmes
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+          - Sid: PublicacaoPelosAlarmesDoAmbiente
+            Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref TopicoAlarmes
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:feedback-*-${Stage}
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+
+  AssinaturaEmailAlarmes:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref TopicoAlarmes
+      Protocol: email
+      Endpoint: !Ref EmailAdmin
+
+  # Os três filtros usam o mesmo padrão: o marcador que os handlers gravam nas falhas
+  # e as duas formas conhecidas da linha de tempo esgotado do runtime.
+  FiltroFalhasRegistro:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      FilterName: !Sub feedback-falhas-registrar-avaliacao-${Stage}
+      LogGroupName: !Ref LogRegistrarAvaliacao
+      FilterPattern: '?FALHA_FUNCAO ?"Task timed out" ?"Status: timeout"'
+      MetricTransformations:
+        - MetricNamespace: !Sub FeedbackServerless/${Stage}
+          MetricName: FalhasRegistrarAvaliacao
+          MetricValue: "1"
+          Unit: Count
+
+  AlarmeFalhaRegistro:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub feedback-falha-registrar-avaliacao-${Stage}
+      AlarmDescription: Falha da função registrar-avaliacao, tratada ou de execução, inclusive tempo esgotado.
+      Namespace: !Sub FeedbackServerless/${Stage}
+      MetricName: FalhasRegistrarAvaliacao
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 5
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref TopicoAlarmes
+
+  FiltroFalhasNotificacao:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      FilterName: !Sub feedback-falhas-notificar-critica-${Stage}
+      LogGroupName: !Ref LogNotificarCritica
+      FilterPattern: '?FALHA_FUNCAO ?"Task timed out" ?"Status: timeout"'
+      MetricTransformations:
+        - MetricNamespace: !Sub FeedbackServerless/${Stage}
+          MetricName: FalhasNotificarCritica
+          MetricValue: "1"
+          Unit: Count
+
+  AlarmeFalhaNotificacao:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub feedback-falha-notificar-critica-${Stage}
+      AlarmDescription: Falha da função notificar-critica, tratada ou de execução, inclusive tempo esgotado.
+      Namespace: !Sub FeedbackServerless/${Stage}
+      MetricName: FalhasNotificarCritica
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 5
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref TopicoAlarmes
+
+  FiltroFalhasRelatorio:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      FilterName: !Sub feedback-falhas-gerar-relatorio-semanal-${Stage}
+      LogGroupName: !Ref LogGerarRelatorioSemanal
+      FilterPattern: '?FALHA_FUNCAO ?"Task timed out" ?"Status: timeout"'
+      MetricTransformations:
+        - MetricNamespace: !Sub FeedbackServerless/${Stage}
+          MetricName: FalhasGerarRelatorioSemanal
+          MetricValue: "1"
+          Unit: Count
+
+  AlarmeFalhaRelatorio:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub feedback-falha-gerar-relatorio-semanal-${Stage}
+      AlarmDescription: Falha da função gerar-relatorio-semanal, tratada ou de execução, inclusive tempo esgotado.
+      Namespace: !Sub FeedbackServerless/${Stage}
+      MetricName: FalhasGerarRelatorioSemanal
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 5
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref TopicoAlarmes
+
+  PainelAmbiente:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub feedback-painel-${Stage}
+      DashboardBody: !Sub |
+        {"widgets":[
+        {"type":"alarm","x":0,"y":0,"width":24,"height":3,"properties":{"title":"Alarmes de falha","alarms":["${AlarmeFalhaRegistro.Arn}","${AlarmeFalhaNotificacao.Arn}","${AlarmeFalhaRelatorio.Arn}"]}},
+        {"type":"metric","x":0,"y":3,"width":8,"height":6,"properties":{"title":"Invocações","region":"${AWS::Region}","view":"timeSeries","stat":"Sum","period":300,"metrics":[["AWS/Lambda","Invocations","FunctionName","${RegistrarAvaliacao}"],["AWS/Lambda","Invocations","FunctionName","${NotificarCritica}"],["AWS/Lambda","Invocations","FunctionName","${GerarRelatorioSemanal}"]]}},
+        {"type":"metric","x":8,"y":3,"width":8,"height":6,"properties":{"title":"Falhas, tratadas e de execução","region":"${AWS::Region}","view":"timeSeries","stat":"Sum","period":60,"metrics":[["FeedbackServerless/${Stage}","FalhasRegistrarAvaliacao"],["FeedbackServerless/${Stage}","FalhasNotificarCritica"],["FeedbackServerless/${Stage}","FalhasGerarRelatorioSemanal"]]}},
+        {"type":"metric","x":16,"y":3,"width":8,"height":6,"properties":{"title":"Duração (ms)","region":"${AWS::Region}","view":"timeSeries","period":300,"metrics":[["AWS/Lambda","Duration","FunctionName","${RegistrarAvaliacao}",{"stat":"Average"}],["AWS/Lambda","Duration","FunctionName","${RegistrarAvaliacao}",{"stat":"Maximum"}],["AWS/Lambda","Duration","FunctionName","${NotificarCritica}",{"stat":"Average"}],["AWS/Lambda","Duration","FunctionName","${NotificarCritica}",{"stat":"Maximum"}],["AWS/Lambda","Duration","FunctionName","${GerarRelatorioSemanal}",{"stat":"Average"}],["AWS/Lambda","Duration","FunctionName","${GerarRelatorioSemanal}",{"stat":"Maximum"}]]}},
+        {"type":"log","x":0,"y":9,"width":24,"height":6,"properties":{"title":"Restaurações do SnapStart","region":"${AWS::Region}","view":"table","query":"SOURCE '/aws/lambda/feedback-registrar-avaliacao-${Stage}' | SOURCE '/aws/lambda/feedback-notificar-critica-${Stage}' | SOURCE '/aws/lambda/feedback-gerar-relatorio-semanal-${Stage}' | filter @message like /^RESTORE_REPORT/ | parse @message 'Restore Duration: * ms' as restauracaoMs | parse @log /feedback-(?<funcao>[a-z-]+)-${Stage}$/ | display @timestamp, funcao, restauracaoMs | sort @timestamp desc | limit 50"}}
+        ]}
+
+Outputs:
+  TabelaAvaliacoesNome:
+    Description: Nome da tabela de avaliações
+    Value: !Ref TabelaAvaliacoes
+  TabelaAvaliacoesArn:
+    Description: ARN da tabela de avaliações
+    Value: !GetAtt TabelaAvaliacoes.Arn
+  TabelaAvaliacoesStreamArn:
+    Description: ARN do stream da tabela de avaliações
+    Value: !GetAtt TabelaAvaliacoes.StreamArn
+  TopicoAdminsNome:
+    Description: Nome do tópico de administradores
+    Value: !GetAtt TopicoAdmins.TopicName
+  TopicoAdminsArn:
+    Description: ARN do tópico de administradores
+    Value: !Ref TopicoAdmins
+  BucketRelatoriosNome:
+    Description: Nome do bucket de relatórios
+    Value: !Ref BucketRelatorios
+  BucketRelatoriosArn:
+    Description: ARN do bucket de relatórios
+    Value: !GetAtt BucketRelatorios.Arn
+  ApiAvaliacoesUrl:
+    Description: URL do endpoint POST /avaliacao
+    Value: !Sub https://${ApiAvaliacoes}.execute-api.${AWS::Region}.${AWS::URLSuffix}/avaliacao
+  RegistrarAvaliacaoNome:
+    Description: Nome da função de registro
+    Value: !Ref RegistrarAvaliacao
+  RegistrarAvaliacaoAliasArn:
+    Description: ARN do alias live da função de registro
+    Value: !Ref RegistrarAvaliacao.Alias
+  NotificarCriticaNome:
+    Description: Nome da função de notificação
+    Value: !Ref NotificarCritica
+  NotificarCriticaAliasArn:
+    Description: ARN do alias live da função de notificação
+    Value: !Ref NotificarCritica.Alias
+  GerarRelatorioSemanalNome:
+    Description: Nome da função de relatório
+    Value: !Ref GerarRelatorioSemanal
+  GerarRelatorioSemanalAliasArn:
+    Description: ARN do alias live da função de relatório. O acionamento manual usa este alias
+    Value: !Ref GerarRelatorioSemanal.Alias
+  TopicoAlarmesArn:
+    Description: ARN do tópico de alarmes
+    Value: !Ref TopicoAlarmes
+  PainelNome:
+    Description: Nome do dashboard do ambiente
+    Value: !Ref PainelAmbiente

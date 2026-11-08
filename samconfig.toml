@@ -1,0 +1,47 @@
+# Configuração do SAM por ambiente. Uso: sam deploy --config-env <dev|hml|prod>
+#
+# O repositório é público: nada de e-mail ou ID de conta neste arquivo.
+# EmailAdmin chega pelo deploy.yml. Como --parameter-overrides na linha de comando
+# substitui o valor daqui, o workflow passa Stage e EmailAdmin juntos.
+#
+# s3_prefix separa os artefatos por ambiente dentro do bucket gerenciado pelo SAM.
+# As roles de deploy só escrevem no próprio prefixo, então não mude sem alterar o bootstrap.
+# A tag ambiente é propagada pelo CloudFormation e protege as APIs de escrita cruzada entre ambientes.
+
+version = 0.1
+
+[dev.global.parameters]
+stack_name = "feedback-dev"
+region = "sa-east-1"
+
+[dev.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "feedback-dev"
+confirm_changeset = false
+parameter_overrides = "Stage=dev"
+tags = "projeto=feedback ambiente=dev"
+
+[hml.global.parameters]
+stack_name = "feedback-hml"
+region = "sa-east-1"
+
+[hml.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "feedback-hml"
+confirm_changeset = false
+parameter_overrides = "Stage=hml"
+tags = "projeto=feedback ambiente=hml"
+
+[prod.global.parameters]
+stack_name = "feedback-prod"
+region = "sa-east-1"
+
+[prod.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "feedback-prod"
+confirm_changeset = false
+parameter_overrides = "Stage=prod"
+tags = "projeto=feedback ambiente=prod"

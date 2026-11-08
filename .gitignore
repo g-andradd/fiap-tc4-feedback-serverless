@@ -1,0 +1,15 @@
+# Maven
+target/
+
+# AWS SAM
+.aws-sam/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Variáveis de ambiente locais
+.env*
+
+# Permissões locais do Claude Code
+.claude/settings.local.json

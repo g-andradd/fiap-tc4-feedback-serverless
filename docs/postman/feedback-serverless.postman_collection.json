@@ -1,0 +1,1611 @@
+{
+  "info": {
+    "name": "Plataforma de feedback: POST /avaliacao",
+    "description": "Requisições de POST /avaliacao, change add-registro-avaliacao. Defina a variável baseUrl com a URL da API, sem o caminho /avaliacao. O output ApiAvaliacoesUrl da stack traz a URL completa do endpoint. Os testes de cada requisição conferem status e corpo conforme a spec registro-avaliacao.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://exemplo.invalid",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Sucesso",
+      "item": [
+        {
+          "name": "Avaliação válida, nota 9, urgência BAIXA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"BAIXA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula muito boa\", \"nota\": 9}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota 5, urgência MEDIA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"MEDIA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula razoável\", \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota 2, urgência CRITICA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"CRITICA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula ruim\", \"nota\": 2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota mínima 0",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"CRITICA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 0}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota máxima 10",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"BAIXA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 10}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descrição com 1 caractere",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"MEDIA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"a\", \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descrição com 1000 caracteres",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"descricao1000\", \"a\".repeat(1000));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"MEDIA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"{{descricao1000}}\", \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descrição com 1000 emojis",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"descricao1000Emojis\", \"\\uD83D\\uDE00\".repeat(1000));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"MEDIA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"{{descricao1000Emojis}}\", \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descrição com espaços nas pontas: 201 com id e urgência MEDIA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"MEDIA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"  boa aula  \", \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota 2 com urgencia BAIXA enviada: 201 com id e urgência CRITICA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"CRITICA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula ruim\", \"nota\": 2, \"urgencia\": \"BAIXA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dataEnvio e criadoEm enviados: 201 com id e urgência MEDIA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"MEDIA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 5, \"dataEnvio\": \"2020-01-01\", \"criadoEm\": \"2020-01-01T00:00:00Z\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "id abc enviado: 201 com outro id e urgência MEDIA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"corpo traz id e urgencia\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.id).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(corpo.urgencia).to.eql(\"MEDIA\");",
+                  "});",
+                  "pm.test(\"id diferente do enviado\", () => pm.expect(pm.response.json().id).to.not.eql(\"abc\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 5, \"id\": \"abc\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Rejeição de descricao",
+      "item": [
+        {
+          "name": "Descrição com 1001 caracteres",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"descricao1001\", \"a\".repeat(1001));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"descricao\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"{{descricao1001}}\", \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descrição ausente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"descricao\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descrição nula",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"descricao\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": null, \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descrição vazia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"descricao\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"\", \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descrição só com espaços",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"descricao\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"   \", \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descrição só com tabulação e quebra de linha",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"descricao\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"\\t\\n\", \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descrição que não é texto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"descricao\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": 123, \"nota\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Rejeição de nota",
+      "item": [
+        {
+          "name": "Nota abaixo do mínimo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"nota\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": -1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota acima do máximo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"nota\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 11}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota ausente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"nota\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota nula",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"nota\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": null}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota decimal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"nota\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 7.5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota decimal com parte fracionária zero",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"nota\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 7.0}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota em notação de expoente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"nota\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 1e1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota como texto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"nota\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": \"7\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nota inteira muito grande",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"nota\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 99999999999999999999}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dois campos inválidos",
+      "item": [
+        {
+          "name": "Descrição vazia e nota 11",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro cita os campos inválidos\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"ENTRADA_INVALIDA\");",
+                  "  pm.expect(corpo.campos).to.eql([\"descricao\",\"nota\"]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"\", \"nota\": 11}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Corpo malformado",
+      "item": [
+        {
+          "name": "JSON truncado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro informa corpo inválido\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"CORPO_INVALIDO\");",
+                  "  pm.expect(corpo.campos).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 5",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sem corpo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro informa corpo inválido\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"CORPO_INVALIDO\");",
+                  "  pm.expect(corpo.campos).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "JSON que não é objeto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro informa corpo inválido\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"CORPO_INVALIDO\");",
+                  "  pm.expect(corpo.campos).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "[1, 2, 3]",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Objeto seguido de tokens",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"erro informa corpo inválido\", () => {",
+                  "  const corpo = pm.response.json();",
+                  "  pm.expect(corpo.erro).to.eql(\"CORPO_INVALIDO\");",
+                  "  pm.expect(corpo.campos).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/avaliacao",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "avaliacao"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"descricao\": \"Aula boa\", \"nota\": 5} xx",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
