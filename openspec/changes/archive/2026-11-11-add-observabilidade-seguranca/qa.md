@@ -1,10 +1,11 @@
 # QA: add-observabilidade-seguranca
 
-Três rodadas:
+Quatro rodadas:
 
 - **Local, tarefas 5.1 a 5.3:** 06/11/2026, sobre o working tree do worktree `fiap-tc4-observabilidade`, branch `feature/add-observabilidade-seguranca`, sem commit. Nada foi escrito na AWS nessa rodada.
 - **Dev, tarefas 6.4 a 6.19, exceto a 6.17, que é do Gabriel:** 06/11/2026, na stack `feedback-dev`, sobre a execução 42278391413 do workflow Deploy (merge `e15f842` do PR #13 em `develop`, `success`, das 19:18:00 às 19:22:06 UTC, região `sa-east-1`). Feita no worktree `fiap-tc4-qa-observabilidade`, branch `feature/add-observabilidade-seguranca-qa`.
 - **Release, tarefas 8.1 e 8.2:** 07/11/2026, com `feedback-dev` e `feedback-hml` no ar ao mesmo tempo. `feedback-hml` foi criada pela execução 42335524756 do Deploy (push em `release/1.0.0`, commit `b730a59`, `success`, `CREATE_COMPLETE` às 03:51:37 UTC). Feita no checkout principal, branch `release/1.0.0`. Está em "Conferência na release (07/11/2026)". A validade da evidência dessa rodada vale só para ela e está descrita lá.
+- **Prod, tarefas 8.3 e parte de prod da 8.1:** 10 e 11/11/2026, só leitura, na stack `feedback-prod`, criada pela execução 42438770120 do Deploy (push em `main`, commit `6eee512`, `success`, `CREATE_COMPLETE` às 03:01:58 UTC de 08/11). Repete a leitura de 08/11, que não tinha sido registrada. Está em "Prod, release 1.0.0 (leitura)".
 
 **Validade da evidência da stack:**
 - **Deploy:** a stack foi de `UPDATE_IN_PROGRESS` às 19:19:58 a `UPDATE_COMPLETE` às 19:21:59 UTC. O CloudTrail mostra `CreateChangeSet`, `ExecuteChangeSet`, `CreateTopic`, `Subscribe`, os 3 `PutMetricFilter`, os 3 `PutMetricAlarm` e o `PutDashboard` feitos pela role `github-deploy-feedback-dev`.
@@ -14,30 +15,38 @@ Três rodadas:
 
 ## Resultado
 
-Atualizado em 07/11/2026 com a rodada da release.
+Atualizado em 11/11/2026 com a leitura de prod e com as duas confirmações do Gabriel (6.17 e 6.19).
 
-| Status | 06/11/2026 | 07/11/2026 |
-|---|---|---|
-| ok (executado) | 54 | 56 |
-| dos quais, executados também na stack ou no CI | 50 | 52 |
-| dos quais, executados só nos testes, com clientes simulados | 4 | 4 |
-| ok (por configuração) | 5 | 4 |
-| não coberto | 3 | 2 |
-| pendente do Gabriel | 1 | 1 |
-| falha | 0 | 0 |
-| **Total de cenários** | **63** | **63** |
+| Status | 06/11/2026 | 07/11/2026 | 11/11/2026, leitura de prod | 11/11/2026, com 6.17 e 6.19 |
+|---|---|---|---|---|
+| ok (executado) | 54 | 56 | 57 | 59 |
+| dos quais, executados também na stack, na conta ou no CI | 50 | 52 | 53 | 55 |
+| dos quais, executados só nos testes, com clientes simulados | 4 | 4 | 4 | 4 |
+| ok (por configuração) | 5 | 4 | 4 | 4 |
+| não coberto | 3 | 2 | 1 | 0 |
+| pendente do Gabriel | 1 | 1 | 1 | 0 |
+| falha | 0 | 0 | 0 | 0 |
+| **Total de cenários** | **63** | **63** | **63** | **63** |
 
 Mudanças de 07/11: `Falha em outro ambiente` saiu de não coberto e `Inspeção das definições` saiu de por configuração, as duas para ok (executado), com a stack `feedback-hml` implantada. A conclusão da 8.1 em hml, às 05:50, acrescentou evidência de hml a três cenários e não mudou nenhum status.
 
-Por spec, em 07/11: `observabilidade` 47 (42 executados, 2 por configuração, 2 não cobertos, 1 pendente do Gabriel), `seguranca` 13 (13, 0, 0, 0) e `entrega-continua` 3 (1, 2, 0, 0).
+Mudança de 11/11: `Retenção em prod` saiu de não coberto para ok (executado), com os três grupos de `feedback-prod` em 30 dias (8.3). A leitura de prod acrescentou evidência de prod a outros cenários, sem mudar status.
 
-**O change ainda não está conforme como um todo:** cenário sem cobertura conta como falha, e há 2 nessa condição:
-- `Retenção em prod`: só fecha com `feedback-prod`, tarefa 8.3, como a própria spec prevê.
-- `Computação com 1024 MB`: o QA não tem acesso ao console de cobrança, e a API do Cost Explorer ficou fora por regra. Ver a 6.19.
+Mudanças das confirmações do Gabriel, registradas em 11/11:
+- `Alarme em ALARM notifica` saiu de pendente do Gabriel para ok (executado): os 12 e-mails de alarme das provas de dev chegaram, sem descrição nem nota (6.17).
+- `Computação com 1024 MB` saiu de não coberto para ok (executado): leitura do console do nível gratuito em 07/11/2026 (6.19).
 
-**Tarefa 8.1 completa em hml, prod pendente:** a assinatura do tópico de alarmes de hml, pendente até 05:18 UTC de 07/11, foi confirmada pelo Gabriel em 07/11/2026 e conferida às 05:49 UTC. O `set-alarm-state` de um alarme de hml às 05:50 publicou e entregou 1 mensagem no tópico de alarmes de hml, sem falha de entrega. Os cenários correspondentes, `Assinatura criada no deploy`, `Alarme em ALARM notifica` e `Publicação pelo CloudWatch mantida`, ganham a réplica em hml, mas os totais não mudam: os dois primeiros já tinham o status definido pela evidência de dev, e `Alarme em ALARM notifica` segue pendente do Gabriel pela caixa de entrada de dev (6.17). Ver "8.1".
+Por spec, em 11/11: `observabilidade` 47 (45 executados, 2 por configuração, 0 não cobertos, 0 pendentes do Gabriel), `seguranca` 13 (13, 0, 0, 0) e `entrega-continua` 3 (1, 2, 0, 0).
 
-**Pendente do Gabriel:** `Alarme em ALARM notifica`. O QA confirmou cada publicação no tópico de alarmes e a entrega à assinatura, sem nenhuma falha de entrega. Que o e-mail chegou na caixa de entrada só o Gabriel confere, na tarefa 6.17. A lista dos 12 e-mails está em "E-mails para o Gabriel conferir (6.17)".
+**O change está conforme pelo critério desta matriz, com 0 não coberto, 0 pendente e 0 falha.** Os 4 cenários ok (por configuração) não são falha: o template ou o workflow garantem o comportamento, e a linha de cada um diz por que não houve execução.
+
+Em 07/11, dois cenários impediam a conformidade: `Retenção em prod`, fechado em 11/11 (8.3), e `Computação com 1024 MB`, fechado pela conferência do Gabriel no console (6.19).
+
+**Tarefa 8.1 completa em hml e, pelo estado das assinaturas, em prod:** as duas assinaturas de prod estão confirmadas (ver "Prod, release 1.0.0 (leitura)"). Em prod, o caminho do alarme até o e-mail não foi exercitado, porque `set-alarm-state` estava proibido nesta rodada.
+
+**Tarefa 8.1 em hml, registro de 07/11:** a assinatura do tópico de alarmes de hml, pendente até 05:18 UTC de 07/11, foi confirmada pelo Gabriel em 07/11/2026 e conferida às 05:49 UTC. O `set-alarm-state` de um alarme de hml às 05:50 publicou e entregou 1 mensagem no tópico de alarmes de hml, sem falha de entrega. Os cenários correspondentes, `Assinatura criada no deploy`, `Alarme em ALARM notifica` e `Publicação pelo CloudWatch mantida`, ganham a réplica em hml, mas os totais não mudam: os dois primeiros já tinham o status definido pela evidência de dev, e `Alarme em ALARM notifica` seguia pendente do Gabriel pela caixa de entrada de dev (6.17), fechada em 11/11. Ver "8.1".
+
+**E-mails de alarme confirmados pelo Gabriel (6.17):** o QA confirmou cada publicação no tópico de alarmes e a entrega à assinatura, sem nenhuma falha de entrega, e o Gabriel confirmou que os 12 e-mails das provas de dev chegaram, sem descrição nem nota. A lista está em "E-mails para o Gabriel conferir (6.17)".
 
 **Nenhuma falha.** Nenhum comportamento observado na stack contraria a spec. Nenhum defeito no código de produção.
 
@@ -55,7 +64,7 @@ Os testes usam clientes do SDK simulados com Mockito ou falsos (`DynamoFalso`, `
 - **O que os testes provam:** em cada caminho de falha, o handler grava uma linha em ERROR com `alarme` igual a `FALHA_FUNCAO`; nos caminhos sem falha e nas rejeições, nenhuma linha contém `FALHA_FUNCAO` e nenhuma está em WARN ou ERROR; o `Error` que escapa é registrado com o marcador e relançado; o hook de aquecimento chama só a leitura prevista em cada cliente, não grava nada e não propaga falha; a notificação só descarrega métricas quando contou alguma.
 - **O que a stack acrescentou:** o casamento da linha com o filtro implantado, o ponto na métrica, a transição do alarme, a publicação no tópico de alarmes e a entrega à assinatura, a política do tópico negando HTTP, o hook rodando antes do snapshot real, a memória e a retenção aplicadas, o dashboard com os dados do período, a ausência do WARN real do Powertools e os tempos depois da restauração com 1024 MB. O descarte de item inválido foi a única falha real provocada, sem alterar a função.
 - **O que segue sem prova real:** a falha interna do registro, a falha de publicação da notificação, a execução com falha do relatório e o tempo esgotado. Na stack, essas falhas chegaram ao alarme por linhas de teste gravadas com `put-log-events` (D14). Que o handler grava essas linhas é provado pelos testes. O texto real da linha de tempo esgotado do runtime `java25` continua não observado (observação I).
-- **O que depende do e-mail:** o recebimento das notificações na caixa de entrada (6.17).
+- **O que depende do e-mail:** o recebimento das notificações na caixa de entrada (6.17), confirmado pelo Gabriel para os 12 e-mails de dev.
 
 Na coluna Limite da matriz:
 - **LOG:** captura em memória com o layout real, clientes simulados.
@@ -133,7 +142,7 @@ Depois do QA, a tabela tem 43 itens (as 3 avaliações do QA) e o bucket continu
 
 A requisição assinada em HTTP expõe o token de sessão da credencial SSO no caminho de rede. Foram duas requisições, previstas na D14, com credencial de curta duração.
 
-### 6.7. Alarmes e caminho até o e-mail: ok, e-mail pendente do Gabriel
+### 6.7. Alarmes e caminho até o e-mail: ok, e-mail confirmado pelo Gabriel (6.17)
 
 **Inspeção antes do teste** (`describe-alarms` em `sa-east-1`):
 
@@ -209,7 +218,7 @@ Busca, sem distinguir maiúsculas, nos itens e nos textos `default`, `email` e `
 
 Os marcadores também não chegam aos grupos de log: `filter-log-events` desde 19:15 com `QA-OBS`, os três sufixos e `"Aula"` devolveu 0 eventos nos três grupos. `descricao` só aparece como nome de campo em `"campos":["descricao"]`, nas rejeições e no descarte.
 
-O texto do e-mail é a variante `email` da mensagem publicada. O QA leu essa variante nas 12 ações. A conferência na caixa de entrada é do Gabriel (6.17).
+O texto do e-mail é a variante `email` da mensagem publicada. O QA leu essa variante nas 12 ações. Na caixa de entrada, o Gabriel confirmou os 12 e-mails sem descrição nem nota (6.17).
 
 ### 6.13. Uma hora sem tráfego: ok
 
@@ -325,11 +334,22 @@ Dashboards: 1, `feedback-painel-dev`. Hoje a conta usa 4 de 10 métricas de alar
 
 As linhas de teste estão em "Linhas de teste usadas". **O stream `qa-observabilidade-20261106` não foi apagado:** ele expira com a retenção de 14 dias dos grupos de dev, por volta de 20/11/2026. Até lá, as linhas aparecem para quem ler os grupos e no dashboard, como pontos de falha nos minutos das janelas e como três restaurações de 790,00 ms às 20:28 (observação L).
 
-### 6.19. Computação com 1024 MB: não coberto
+### 6.19. Computação com 1024 MB: ok, conferido pelo Gabriel no console
 
-O QA trabalha só com o AWS CLI e não tem acesso ao console de cobrança. A API do Cost Explorer ficou fora por regra. O cenário fica não coberto até alguém abrir a página do nível gratuito no console de cobrança.
+O QA trabalha só com o AWS CLI e não tem acesso ao console de cobrança. A API do Cost Explorer ficou fora por regra. O cenário ficou não coberto até o Gabriel abrir a página do nível gratuito.
 
-Indício, que não substitui o console: soma das linhas `REPORT` dos três grupos de dev de 01/11 a 21:25 UTC de 06/11/2026, por Logs Insights. As três funções de dev são as únicas funções Lambda da conta em `sa-east-1`.
+**Leitura do Gabriel no console do Free Tier, em 07/11/2026,** informada ao QA pelo orquestrador e registrada em 11/11:
+
+| Item do nível gratuito do Lambda | Uso no mês | Limite mensal | Percentual | Previsão do console para o mês |
+|---|---|---|---|---|
+| Computação | 235 GB-s | 400.000 GB-s | 0,06% | 1.009 GB-s, 0,25% |
+| Requisições | 128 | 1.000.000 | 0,01% | |
+
+Com isso, o uso com 1024 MB fica dentro do nível gratuito, com folga de mais de 99%, que é o que o cenário pede.
+
+O QA não viu o console. Os números acima são os informados, e a data da leitura é a do Gabriel. O console mede o mês da conta inteira, inclusive as stacks apagadas antes de 05/11, e atualiza com atraso. Por isso não bate com o indício abaixo, que soma só os grupos de log atuais de dev até 06/11: 48,9 GB-s e 138 invocações. A diferença não muda o resultado, porque as duas contas ficam abaixo de 0,3% dos limites.
+
+Indício do QA, anterior à leitura do console: soma das linhas `REPORT` dos três grupos de dev de 01/11 a 21:25 UTC de 06/11/2026, por Logs Insights. As três funções de dev são as únicas funções Lambda da conta em `sa-east-1`.
 
 | Memória | Invocações | Duração cobrada | GB-s |
 |---|---|---|---|
@@ -346,9 +366,9 @@ Limites mensais do nível gratuito do Lambda, pela D8: 1 milhão de requisiçõe
 
 ## Conferência na release (07/11/2026)
 
-**Validade da evidência:** observação das 03:57 às 05:20 UTC de 07/11/2026 (00:57 às 02:20 em Brasília), com `feedback-dev` (`UPDATE_COMPLETE` desde 06/11 às 19:21) e `feedback-hml` (`CREATE_COMPLETE` às 03:51:37) no ar. O relógio da máquina seguia cerca de 7 s adiantado: a linha da 8.2 tem `timestamp` 04:48:45.377 e `ingestionTime` 04:48:38.717, no mesmo minuto. A fumaça da release em hml, com o registro, o relatório e o isolamento de recursos, está em `openspec/changes/add-fundacao-projeto/qa.md`, seção "Release 1.0.0 em hml (07/11/2026)". A 8.1 teve uma segunda rodada, das 05:50 às 05:54 UTC (02:50 às 02:54 em Brasília), depois da confirmação da assinatura de alarmes de hml. **Escritas desta seção:** 1 log stream `qa-observabilidade-20261107` no grupo do registro de dev, com 1 linha, e 1 `set-alarm-state` em `feedback-falha-registrar-avaliacao-hml`. Nenhum alarme, dashboard ou filtro criado, nada apagado.
+**Validade da evidência:** observação das 03:57 às 05:20 UTC de 07/11/2026 (00:57 às 02:20 em Brasília), com `feedback-dev` (`UPDATE_COMPLETE` desde 06/11 às 19:21) e `feedback-hml` (`CREATE_COMPLETE` às 03:51:37) no ar. O relógio da máquina seguia cerca de 7 s adiantado: a linha da 8.2 tem `timestamp` 04:48:45.377 e `ingestionTime` 04:48:38.717, no mesmo minuto. A fumaça da release em hml, com o registro, o relatório e o isolamento de recursos, está em `openspec/changes/archive/2026-11-11-add-fundacao-projeto/qa.md`, seção "Release 1.0.0 em hml (07/11/2026)". A 8.1 teve uma segunda rodada, das 05:50 às 05:54 UTC (02:50 às 02:54 em Brasília), depois da confirmação da assinatura de alarmes de hml. **Escritas desta seção:** 1 log stream `qa-observabilidade-20261107` no grupo do registro de dev, com 1 linha, e 1 `set-alarm-state` em `feedback-falha-registrar-avaliacao-hml`. Nenhum alarme, dashboard ou filtro criado, nada apagado.
 
-### 8.1. Assinaturas de hml: ok em hml, prod pendente
+### 8.1. Assinaturas de hml: ok em hml (prod em "Prod, release 1.0.0 (leitura)")
 
 Tarefa do Gabriel. O QA conferiu o estado pela API:
 
@@ -369,7 +389,7 @@ As duas assinaturas foram criadas às 03:48:52 pela sessão `github-deploy-feedb
 | Mensagem | Variantes `default`, `email` e `sms`, só com dados do alarme. `AlarmActions` só com `feedback-alarmes-hml`. Nenhuma ocorrência dos marcadores da fumaça, de `Aula`, `descricao` ou `"nota"` |
 | Volta a OK | Sozinha às 05:50:41.426, 4 s depois, `no datapoints were received for 5 periods`. Em dev, de 60 a 80 s |
 
-Isso prova, em hml, a política `PublicacaoPelosAlarmesDoAmbiente` com `aws:SourceArn` em `alarm:feedback-*-hml`, a ação do alarme e a entrega à assinatura confirmada. Que o e-mail chegou na caixa de entrada, só o Gabriel confere. **A 8.1 fica completa em hml.** Falta prod, que ainda não existe.
+Isso prova, em hml, a política `PublicacaoPelosAlarmesDoAmbiente` com `aws:SourceArn` em `alarm:feedback-*-hml`, a ação do alarme e a entrega à assinatura confirmada. Que o e-mail chegou na caixa de entrada, só o Gabriel confere. **A 8.1 fica completa em hml.** Falta prod, que ainda não existe. **Atualização de 11/11/2026:** prod foi implantado em 08/11, e as duas assinaturas de prod estão confirmadas. Ver "Prod, release 1.0.0 (leitura)".
 
 ### 8.2. Falha em outro ambiente: ok
 
@@ -388,7 +408,78 @@ Isso prova, em hml, a política `PublicacaoPelosAlarmesDoAmbiente` com `aws:Sour
 
 O alarme de dev voltou a OK 10 minutos depois de entrar em ALARM, como na observação K. O dashboard de hml foi lido pela API, sem console (observação M).
 
+## Prod, release 1.0.0 (leitura)
+
+**Validade da evidência:**
+- **Deploy:** execução 42438770120 do workflow Deploy, evento `push` em `main`, commit `6eee512`, `success`, das 02:29:37 às 03:02:07 UTC de 08/11/2026. A stack foi de `REVIEW_IN_PROGRESS` às 02:58:15 a `CREATE_COMPLETE` às 03:01:58 UTC, com 118 eventos e nenhum `FAILED`. Parâmetro `Stage` `prod` e tags `projeto` `feedback` e `ambiente` `prod`.
+- **Observação:** a leitura de 08/11 foi repetida e agora registrada. As leituras foram de 21:44 UTC de 10/11 a 02:55 UTC de 11/11, com uma pausa no meio. Por isso, funções, retenção, alarmes, agendamento, tabela e stack foram lidos de novo em bloco único, das 02:55:01 às 02:55:11 UTC de 11/11, com o mesmo resultado.
+- **Escritas na conta:** nenhuma. Só `describe-*`, `get-*`, `list-*`, `get-metric-statistics`, `filter-log-events`, `head-object`, `get-object` e `scan --select COUNT`, com o perfil `tc4-admin`. Nenhuma invocação, nenhuma chamada à API, nenhum `set-alarm-state`, nenhuma publicação, nenhuma linha de log.
+- **Tráfego em prod desde a criação:** só a execução agendada do relatório às 11:00 UTC de 09/11, registrada em `openspec/changes/archive/2026-11-11-add-relatorio-semanal/qa.md`, seção "Execução agendada real, 09/11/2026". Registro e notificação de prod sem nenhum ponto em `Invocations` de 08/11 a 10/11.
+
+### Funções
+
+`get-function-configuration` no alias `live`:
+
+| Função | Versão do `live` | `State` | `LastUpdateStatus` | `OptimizationStatus` | `MemorySize` | `Timeout` | `POWERTOOLS_METRICS_NAMESPACE` | Boundary da role |
+|---|---|---|---|---|---|---|---|---|
+| `feedback-registrar-avaliacao-prod` | 1 | `Active` | `Successful` | `On` | 1024 | 10 | `FeedbackServerless/prod` | `feedback-limite-funcoes-prod` |
+| `feedback-notificar-critica-prod` | 1 | `Active` | `Successful` | `On` | 1024 | 30 | `FeedbackServerless/prod` | `feedback-limite-funcoes-prod` |
+| `feedback-gerar-relatorio-semanal-prod` | 1 | `Active` | `Successful` | `On` | 1024 | 120 | `FeedbackServerless/prod` | `feedback-limite-funcoes-prod` |
+
+As três com `java25`, `TracingConfig` `Active`, `AMBIENTE` `prod`, `ApplyOn: PublishedVersions` e alias sem `RoutingConfig`. Cada função tem só `$LATEST`, com `OptimizationStatus: Off`, e a versão 1. A role do agendamento também tem o boundary `feedback-limite-funcoes-prod`.
+
+### 8.3. Retenção em prod: ok
+
+`describe-log-groups`:
+
+| Grupo | `retentionInDays` | Criação (UTC) |
+|---|---|---|
+| `/aws/lambda/feedback-registrar-avaliacao-prod` | 30 | 02:58:32 de 08/11 |
+| `/aws/lambda/feedback-notificar-critica-prod` | 30 | 02:58:32 de 08/11 |
+| `/aws/lambda/feedback-gerar-relatorio-semanal-prod` | 30 | 02:58:32 de 08/11 |
+
+Dev e hml seguem com 14 dias (6.5 e `add-fundacao-projeto/qa.md`), o que confirma, nos três ambientes implantados, o `!If [EhProd, 30, 14]` do template.
+
+### Alarmes de prod
+
+| Alarme | Estado | Métrica | `AlarmActions` | `OKActions`, `InsufficientDataActions` | Histórico |
+|---|---|---|---|---|---|
+| `feedback-falha-registrar-avaliacao-prod` | OK desde 03:00:27 UTC de 08/11 | `FeedbackServerless/prod` `FalhasRegistrarAvaliacao` | só `feedback-alarmes-prod` | vazias | só a criação, às 02:58:34, e a passagem de `INSUFFICIENT_DATA` para OK |
+| `feedback-falha-notificar-critica-prod` | OK desde 02:59:57 | `FalhasNotificarCritica` | só `feedback-alarmes-prod` | vazias | idem |
+| `feedback-falha-gerar-relatorio-semanal-prod` | OK desde 02:59:36 | `FalhasGerarRelatorioSemanal` | só `feedback-alarmes-prod` | vazias | idem |
+
+Os três com `Sum`, `Period` 60, 5 períodos, 1 ponto, limiar 1, `notBreaching` e `ActionsEnabled`, iguais aos de dev e hml. Nenhum aponta para o tópico de administradores. O tópico de alarmes de prod não tem nenhuma publicação de 08/11 a 10/11. Na conta há 9 alarmes `feedback-*`, 3 por ambiente.
+
+### Agendamento de prod
+
+`feedback-relatorio-semanal-prod`: `ENABLED`, `cron(0 8 ? * MON *)`, `America/Sao_Paulo`, grupo `default`, `FlexibleTimeWindow` `OFF`, alvo `feedback-gerar-relatorio-semanal-prod:live`, `Input` `{}`, `RetryPolicy` 3 e 3600 s, `ActionAfterCompletion` `NONE`, criado às 03:01:55 UTC de 08/11. Disparou às 11:00 UTC de 09/11.
+
+### 8.1. Assinaturas de prod: confirmadas
+
+| Tópico | Assinatura | `SubscriptionsConfirmed`, `Pending`, `Deleted` | `KmsMasterKeyId` |
+|---|---|---|---|
+| `feedback-admins-prod` | 1 `email`, com ARN de assinatura, ou seja, confirmada | 1, 0, 0 | `alias/aws/sns` |
+| `feedback-alarmes-prod` | 1 `email`, confirmada | 1, 0, 0 | nenhum |
+
+O endereço não foi copiado. O tópico de administradores de prod já entregou o aviso do relatório de 09/11 (1 publicada, 1 entregue, 0 falhas), o que confirma a assinatura em uso. No tópico de alarmes de prod, a entrega não foi exercitada.
+
+### Tabela e bucket de prod
+
+| Item | Observado |
+|---|---|
+| `feedback-avaliacoes-prod`, `scan --select COUNT` | `Count` 0, `ScannedCount` 0 |
+| Tabela | `ACTIVE`, `SSEType` `KMS`, Stream `NEW_IMAGE`, recuperação pontual `ENABLED`, como esperado em prod |
+| Bucket de prod | Um único objeto, `relatorios/2026-11-09.txt`, 351 bytes, `LastModified` 11:00:14 UTC de 09/11, da execução agendada, com a semana vazia |
+
+### O que a leitura de prod acrescenta à matriz
+
+- `Retenção em prod`: não coberto para ok (executado).
+- Evidência de prod, sem mudar status: `Assinatura criada no deploy`, `Destino das ações de alarme`, `Memória na stack`, `Versão publicada com aquecimento` e `Boundary mantido`.
+- Não exercitado em prod, por regra desta rodada: o caminho do alarme até o e-mail e qualquer falha. `Alarme em ALARM notifica` foi fechado pela caixa de entrada de dev (6.17), confirmada pelo Gabriel.
+
 ## E-mails para o Gabriel conferir (6.17)
+
+**Confirmado pelo Gabriel:** os 12 e-mails da tabela abaixo chegaram, sem descrição nem nota. A confirmação foi informada ao QA pelo orquestrador e registrada em 11/11/2026. Ela não cita os 2 e-mails extras da 8.2 e da 8.1, descritos no fim desta seção, que não fazem parte da 6.17.
 
 Assinatura do tópico `feedback-alarmes-dev`. Devem ter chegado **exatamente 12 e-mails de alarme**, todos com o assunto `ALARM: "feedback-falha-<função>-dev" in South America (Sao Paulo)`, e nenhum de volta a OK, porque os alarmes não têm `OKActions`.
 
@@ -519,14 +610,14 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
 | Tópico criado no deploy | ok (executado) | `feedback-alarmes-dev`, criado às 19:20:02 pelo deploy, diferente de `feedback-admins-dev` (6.6) | INSP |
-| Assinatura criada no deploy | ok (executado) | 1 assinatura `email` para `EmailAdmin`, confirmada pelo Gabriel na 6.3. A mensagem de confirmação foi entregue às 19:20 (6.6). Em hml, 8.1: assinatura criada às 03:48:52 de 07/11, mensagem de confirmação entregue às 03:48 e confirmada pelo Gabriel, conferida às 05:49 UTC | INSP em dev e hml |
+| Assinatura criada no deploy | ok (executado) | 1 assinatura `email` para `EmailAdmin`, confirmada pelo Gabriel na 6.3. A mensagem de confirmação foi entregue às 19:20 (6.6). Em hml, 8.1: assinatura criada às 03:48:52 de 07/11, mensagem de confirmação entregue às 03:48 e confirmada pelo Gabriel, conferida às 05:49 UTC. Em prod, em 11/11: 1 assinatura `email` confirmada em `feedback-alarmes-prod`, 1, 0, 0 | INSP em dev, hml e prod |
 
 ### Notificação dos alarmes
 
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
-| Alarme em ALARM notifica | **pendente do Gabriel** | `set-alarm-state` nos três: 3 ações `Succeeded`, 3 publicações e 3 entregas às 19:42, 0 falhas de entrega (6.7). Réplica em hml em 07/11 (8.1): 1 alarme, ação `Succeeded`, 1 publicação e 1 entrega às 05:50, 0 falhas. Falta a caixa de entrada de dev | STACK. E-MAIL, 6.17 |
-| Destino das ações de alarme | ok (executado) | `describe-alarms`: `AlarmActions` só com `feedback-alarmes-dev`, `OKActions` e `InsufficientDataActions` vazias. As 12 mensagens publicadas trazem a mesma lista (6.7, 6.12) | INSP |
+| Alarme em ALARM notifica | ok (executado) | `set-alarm-state` nos três: 3 ações `Succeeded`, 3 publicações e 3 entregas às 19:42, 0 falhas de entrega (6.7). Réplica em hml em 07/11 (8.1): 1 alarme, ação `Succeeded`, 1 publicação e 1 entrega às 05:50, 0 falhas. Caixa de entrada de dev: o Gabriel confirmou os 12 e-mails de alarme das provas, sem descrição nem nota (6.17) | STACK e E-MAIL confirmado |
+| Destino das ações de alarme | ok (executado) | `describe-alarms`: `AlarmActions` só com `feedback-alarmes-dev`, `OKActions` e `InsufficientDataActions` vazias. As 12 mensagens publicadas trazem a mesma lista (6.7, 6.12). Em prod, os três alarmes só com `feedback-alarmes-prod` e as outras ações vazias | INSP em dev e prod |
 
 ### Alarme de falha do registro
 
@@ -595,14 +686,14 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 |---|---|---|---|
 | Retenção em dev | ok (executado) | `describe-log-groups`: 14 dias nos três grupos (6.5) | INSP |
 | Retenção definida pelo ambiente no template | ok (por configuração) | `!If [EhProd, 30, 14]` nos três grupos; `EhProd` é `Stage` igual a `prod` | CONFIG |
-| Retenção em prod | **não coberto** | | RELEASE, 8.3 |
+| Retenção em prod | ok (executado) | Em 11/11, na stack `feedback-prod` implantada: `describe-log-groups` com `retentionInDays` 30 nos três grupos `/aws/lambda/feedback-*-prod` (8.3) | INSP em prod |
 
 ### Memória das funções
 
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
 | Memória no template | ok (por configuração) | `MemorySize: 1024` no `Globals`; nenhuma função declara `MemorySize` | CONFIG |
-| Memória na stack | ok (executado) | `MemorySize` 1024 no alias `live` das três (6.4), e `Memory Size: 1024 MB` em todos os `REPORT` do QA | INSP |
+| Memória na stack | ok (executado) | `MemorySize` 1024 no alias `live` das três (6.4), e `Memory Size: 1024 MB` em todos os `REPORT` do QA. Em prod, 1024 no `live` das três e no `REPORT` da execução agendada de 09/11 | INSP em dev e prod |
 
 ### Aquecimento dos clientes do SDK
 
@@ -610,7 +701,7 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 |---|---|---|---|
 | Clientes exercitados antes do snapshot | ok (executado) | `AR.chamaSoDescribeTable`, `AN.chamaSoGetTopicAttributes`, `AG.queryNaParticaoVazia`, `AG.leiturasNoBucketENoTopico`, `AG.nadaGravadoNemPublicado` (mutações M5, M7, M17, M18 e M19). Na stack, uma linha `Cliente aquecido` por cliente no log da publicação: DynamoDB no registro, SNS na notificação, DynamoDB, S3 e SNS no relatório (6.4) | SIM e STACK |
 | Falha no aquecimento | ok (executado) | `falhaDoServico`, `falhaDoCliente` e `linkageError` em `AR` e `AN`; `AG.falhaDeUmClienteNaoImpedeOsOutros`, `AG.linkageErrorNaoImpedeOsOutros`, `AG.falhaDoServico` (mutações M6, M12 e M16). Na stack não houve falha | LOG |
-| Versão publicada com aquecimento | ok (executado) | `State` `Active` e `OptimizationStatus` `On` nas versões 7, 4 e 2 do `live` (6.4) | INSP |
+| Versão publicada com aquecimento | ok (executado) | `State` `Active` e `OptimizationStatus` `On` nas versões 7, 4 e 2 do `live` (6.4). Em prod, o mesmo na versão 1 do `live` das três | INSP em dev e prod |
 
 ### Aquecimento sem efeito em dados
 
@@ -634,7 +725,7 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 |---|---|---|---|
 | Contagem pelo template e pela conta | ok (executado) | Template: 3 métricas de alarme e 1 dashboard por stack. Conta: 3 alarmes em `sa-east-1`, 1 de cobrança em `us-east-1`, nenhum nas outras regiões consultadas, 1 dashboard. Com hml e prod, 10 de 10 e 3 de 3 | INSP e CONFIG |
 | Alarmes sem alta resolução | ok (executado) | `Period` 60 nos três alarmes implantados e 21600 no de cobrança, sem `ExtendedStatistic` | INSP |
-| Computação com 1024 MB | **não coberto** | Sem acesso ao console de cobrança, e o Cost Explorer está fora por regra. Indício na 6.19 | Console de cobrança |
+| Computação com 1024 MB | ok (executado) | Console do Free Tier lido pelo Gabriel em 07/11/2026: 235 de 400.000 GB-s no mês (0,06%), previsão de 1.009 GB-s (0,25%), e 128 de 1.000.000 requisições. Indício do QA na 6.19 | Console de cobrança, leitura do Gabriel |
 
 ## Matriz: seguranca
 
@@ -643,7 +734,7 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
 | Atributos do tópico | ok (executado) | `get-topic-attributes` sem `KmsMasterKeyId` (6.6) | INSP |
-| Conteúdo da notificação | ok (executado) | Avaliações com 3 marcadores registradas antes e entre as janelas. As 12 mensagens publicadas, nas variantes `default`, `email` e `sms`, trazem só dados do alarme e nenhum marcador, descrição ou nota (6.12). A 6.17 é a réplica na caixa de entrada | STACK. E-MAIL como réplica |
+| Conteúdo da notificação | ok (executado) | Avaliações com 3 marcadores registradas antes e entre as janelas. As 12 mensagens publicadas, nas variantes `default`, `email` e `sms`, trazem só dados do alarme e nenhum marcador, descrição ou nota (6.12). Na caixa de entrada, o Gabriel confirmou os 12 e-mails sem descrição nem nota (6.17) | STACK e E-MAIL confirmado |
 | Métrica do alarme é contagem | ok (executado) | Os três filtros implantados têm `metricValue` `"1"`, sem seletor `$` e sem dimensão (6.5) | INSP |
 
 ### Tópico de alarmes só aceita TLS
@@ -672,7 +763,7 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
 | Inspeção das roles | ok (executado) | Comparação com o `PutRolePolicy` anterior no CloudTrail: 0 statements removidos, 4 novos, todos de leitura e em recursos `dev` (6.16) | INSP |
-| Boundary mantido | ok (executado) | As quatro roles da stack com `feedback-limite-funcoes-dev`, na `v2` (6.16) | INSP |
+| Boundary mantido | ok (executado) | As quatro roles da stack com `feedback-limite-funcoes-dev`, na `v2` (6.16). Em prod, as três roles das funções e a do agendamento com `feedback-limite-funcoes-prod` | INSP em dev e prod |
 
 ### Implantação pela role do ambiente
 
@@ -695,9 +786,9 @@ A stack implantada confirmou cada item na 6.4 a 6.7, 6.14 e 6.16.
 
 | Situação | Cenários |
 |---|---|
-| Só prod fecha (1) | `Retenção em prod` (8.3) |
-| Sem acesso do QA (1) | `Computação com 1024 MB` (6.19, console de cobrança) |
-| Pendente do Gabriel (1) | `Alarme em ALARM notifica` (6.17) |
+| Nenhum (0) | |
+
+Os três que estavam aqui fecharam em 11/11: `Retenção em prod` pela leitura de prod (8.3), `Computação com 1024 MB` pela leitura do console feita pelo Gabriel (6.19) e `Alarme em ALARM notifica` pela confirmação dos e-mails pelo Gabriel (6.17).
 
 ## Defeitos
 
@@ -713,7 +804,7 @@ Não reprovam cenário.
 
 - **A. Consultas que o SSO bloqueou no QA local.** Feitas em dev: contagem de alarmes e dashboards e `test-metric-filter`. Resolvida.
 - **B. WARN real fora da prova local.** Coberto na 6.10 e na 6.15 com o Powertools real. Resolvida.
-- **C. `Computação com 1024 MB`.** Ganhou a tarefa 6.19, mas segue não coberto por falta de acesso ao console de cobrança.
+- **C. `Computação com 1024 MB`.** Ganhou a tarefa 6.19 e fechou com a leitura do console feita pelo Gabriel em 07/11/2026. Resolvida.
 - **D. `Destino das ações de alarme`.** Incluído na 6.7. Resolvida.
 - **E. Registro do hook só por revisão.** A linha `Cliente aquecido` de cada cliente no log da publicação prova, na stack, que o hook foi registrado e rodou antes do snapshot. Resolvida.
 - **F. `RuntimeException` que escapa da notificação.** Virou risco aceito.
@@ -727,7 +818,7 @@ Não reprovam cenário.
   - Na janela C, o QA gravou em cada grupo, além do `REPORT` com restauração que a D14 pede, uma linha `RESTORE_REPORT Restore Duration: 790.00 ms`. A D7 contava com que nenhuma linha de teste começasse com `RESTORE_REPORT`. Por isso, o widget de restaurações mostra três restaurações falsas de 790,00 ms às 20:28:16, 20:28:17 e 20:28:18 de 06/11, uma por função, até a retenção apagar o stream. Elas não entram em métrica nem em alarme, e são identificáveis pelo valor redondo e pelo stream `qa-observabilidade-20261106`. Ninguém deve citá-las como medição.
 - **M. Dashboard conferido pela API, sem console.** O QA leu a definição com `get-dashboard` e rodou as mesmas métricas e a mesma consulta dos widgets. A API `StartQuery` recusa o prefixo `SOURCE '...' |` que o widget de log usa, então a consulta foi rodada com `--log-group-names`. O desenho dos widgets no console não foi visto pelo QA. O Gabriel pode conferir ao abrir `feedback-painel-dev` no console, com o período de 19:30 a 21:30 UTC de 06/11, o que já está no roteiro do vídeo.
 - **N. Relógio local cerca de 7 s adiantado.** Ver "Validade da evidência da stack".
-- **O. Efeitos colaterais da 6.15.** 3 avaliações novas na tabela de dev (43 itens), `relatorios/2026-11-06.txt` regravado três vezes, com o mesmo conteúdo de 38 avaliações, e 6 e-mails aos administradores. A conferência pendente da execução agendada de `add-relatorio-semanal`, que usa `relatorios/2026-11-09.txt`, não foi afetada. As 3 avaliações têm `dataEnvio` 2026-11-06 e vão entrar na janela do relatório de 2026-11-09, como as 2 do QA do relatório.
+- **O. Efeitos colaterais da 6.15.** 3 avaliações novas na tabela de dev (43 itens), `relatorios/2026-11-06.txt` regravado três vezes, com o mesmo conteúdo de 38 avaliações, e 6 e-mails aos administradores. A conferência da execução agendada de `add-relatorio-semanal`, que usa `relatorios/2026-11-09.txt`, não foi afetada. As 3 avaliações têm `dataEnvio` 2026-11-06 e entraram no relatório agendado de 2026-11-09, como as 2 do QA do relatório.
 - **P. Aquecimento custa cerca de 1,6 a 1,8 s na publicação.** A primeira chamada de cada cliente durante o hook levou 1.602 a 1.798 ms, e o `INIT_REPORT` ficou entre 7,4 e 8,6 s, dentro do limite de 130 s. É o custo que saiu da primeira invocação.
 
 ## Divergências do design
@@ -766,7 +857,7 @@ Rodada local. No próprio worktree, 19 mutações foram aplicadas ao código de 
 
 ## Testes acrescentados
 
-Nenhum. Os cenários que seguem em aberto dependem da release, do console de cobrança ou da caixa de entrada, e nenhum se resolve com teste local. Nenhum código de produção foi alterado.
+Nenhum. Os cenários que ficaram em aberto dependiam da release, do console de cobrança ou da caixa de entrada, e nenhum se resolvia com teste local. Os três fecharam em 11/11. Nenhum código de produção foi alterado.
 
 ## Coleção Postman
 

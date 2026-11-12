@@ -1,6 +1,6 @@
 # Incidente: deploys em dev falharam no SnapStart e na tag da API
 
-**Data:** 04/11/2026 e 05/11/2026 (UTC). **Ambiente:** dev. **Situação:** encerrado em 05/11/2026. O deploy da [execução 41968866186](https://github.com/g-andradd/fiap-tc4-feedback-serverless/actions/runs/41968866186), commit `09cee5d`, ficou verde. A conferência em dev trouxe `State: Active` e `OptimizationStatus: On` no alias `live`, versão 3, e `RESTORE_REPORT` em invocações reais. O relatório está em `openspec/changes/add-registro-avaliacao/qa.md`. O desvio do `aspectjrt` continua aberto até a release do Powertools com o commit `f628502` (tarefa 8.6).
+**Data:** 04/11/2026 e 05/11/2026 (UTC). **Ambiente:** dev. **Situação:** encerrado em 05/11/2026. O deploy da [execução 41968866186](https://github.com/g-andradd/fiap-tc4-feedback-serverless/actions/runs/41968866186), commit `09cee5d`, ficou verde. A conferência em dev trouxe `State: Active` e `OptimizationStatus: On` no alias `live`, versão 3, e `RESTORE_REPORT` em invocações reais. O relatório está em `openspec/changes/archive/2026-11-11-add-registro-avaliacao/qa.md`. O desvio do `aspectjrt` continua aberto até a release do Powertools com o commit `f628502`, como registra a seção "Pendências pós-entrega" do `openspec/project.md`.
 
 As seções abaixo tratam da primeira falha. A segunda está em [Segunda falha](#segunda-falha-permissão-de-tag-no-stage-da-api).
 

@@ -7,7 +7,26 @@ Tarefas 4.1 e 5.3 a 5.9. A validação local foi feita em 05/11/2026 sobre o wor
 - **Ordem:** a linha de base (configuração, agendamento, roles, bucket, tabela, logs e métricas) foi lida inteira antes de qualquer tráfego do QA. Antes do QA, o bucket não tinha nenhum objeto em `relatorios/`, a função não tinha nenhuma invocação e o tópico não tinha nenhuma publicação desde 22:30 UTC de 05/11.
 - **Escritas na conta:** 2 avaliações registradas pela API e 9 invocações do alias `live` (6 com sucesso e 3 rejeitadas), que gravaram 4 objetos em `relatorios/`, 2 deles sobrescritos, e publicaram 6 avisos no tópico. Nada foi apagado, e nenhuma configuração, código, versão, `$LATEST` ou agendamento foi alterado. O restante foi leitura com o perfil `tc4-admin`.
 
+A execução agendada real de 09/11/2026 foi conferida depois, em dev, hml e prod, só com leituras, de 21:44 UTC de 10/11 a 02:55 UTC de 11/11. Está em "Execução agendada real, 09/11/2026".
+
 ## Resultado
+
+Atualizado em 11/11/2026 com a execução agendada real.
+
+| Status | 06/11/2026 | 11/11/2026 |
+|---|---|---|
+| ok (executado) | 42 | 42 |
+| dos quais, executados também na stack | 27 | 29 |
+| dos quais, executados só no handler ou no domínio, com clientes falsos | 15 | 13 |
+| ok (por configuração) | 0 | 0 |
+| não coberto | 0 | 0 |
+| pendente do Gabriel | 0 | 0 |
+| falha | 0 | 0 |
+| **Total de cenários** | **42** | **42** |
+
+Mudanças de 11/11: `Execução agendada` e `Manual seguida de agendada` ganharam réplica na stack. A primeira nos três ambientes, a segunda em dev, o único com um relatório manual de 2026-11-09 antes do disparo. Nenhum status mudou.
+
+Quadro original de 06/11/2026:
 
 | Status | Quantidade |
 |---|---|
@@ -28,7 +47,7 @@ Os 2 cenários que o QA local deixou em aberto foram fechados na stack: `Agendam
 
 **E-mails confirmados pelo Gabriel em 06/11/2026:** os 6 avisos chegaram, com a média e os totais esperados.
 
-**Execução agendada fica para depois de 09/11/2026.** O agendamento está implantado, mas a primeira execução real é na segunda 09/11/2026 às 08:00 em São Paulo, 11:00 UTC. A conferência dessa execução está em "Conferência pendente da execução agendada".
+**Execução agendada comprovada em 09/11/2026.** O Scheduler disparou às 08:00 em São Paulo, 11:00 UTC, nos três ambientes. Cada função rodou uma única vez pelo alias `live`, gravou `relatorios/2026-11-09.txt`, idêntico byte a byte ao texto montado a partir das 7 partições da janela de 2026-11-02 a 2026-11-08, e publicou um aviso entregue. Nenhum alarme saiu de OK. Isso fecha a pendência que este relatório deixava para depois dessa data. Ver "Execução agendada real, 09/11/2026".
 
 Significado dos status:
 - **ok (executado):** o teste rodou em `mvn -B verify` e a asserção prova o que o cenário pede no nível do handler ou do domínio, ou a execução na stack prova o que o cenário pede. A coluna Limite diz qual dos dois casos vale.
@@ -43,11 +62,12 @@ Os testes usam `DynamoFalso`, `S3Falso` e `SnsFalso`, de `ApoioTeste`, `Metrics`
 
 - **O que os testes provam:** dado o evento e o relógio, o handler consulta as partições esperadas, grava o texto esperado na chave esperada, publica a mensagem esperada ou deixa de chamar o serviço, e termina com a exceção esperada.
 - **O que a stack acrescentou:** a leitura real do índice `por-data`, a gravação real no S3 com tipo de conteúdo e criptografia, a publicação real no SNS e a entrega à assinatura, as permissões da role com boundary, o SnapStart com restauração, os logs e as métricas no CloudWatch, o trace do X-Ray, a rejeição pelo runtime com `FunctionError`, o agendamento implantado e a negação do acesso anônimo.
-- **O que segue sem prova real:** o disparo pelo Scheduler, as falhas de leitura, de gravação e de publicação, o item inválido, o log em ERROR desses caminhos e a métrica `ErroInterno`. Na stack só o caminho de sucesso e o de rejeição da data foram exercitados.
+- **O que a execução agendada de 09/11 acrescentou:** o disparo real pelo Scheduler nos três ambientes, com o evento `{}` do agendamento, a substituição em dev de um relatório manual pela execução agendada e a semana vazia real em prod.
+- **O que segue sem prova real:** as falhas de leitura, de gravação e de publicação, o item inválido, o log em ERROR desses caminhos e a métrica `ErroInterno`. Na stack só o caminho de sucesso e o de rejeição da data foram exercitados.
 - **O que depende do e-mail:** o texto dos avisos como chega ao administrador.
 
 Na coluna Limite da matriz:
-- **STACK:** além do teste, o cenário foi repetido em `feedback-dev`. Quando a massa ou a data da stack difere da do cenário, a linha diz qual foi usada.
+- **STACK:** além do teste, o cenário foi repetido em `feedback-dev`, e, quando a linha diz, também em `feedback-hml` e `feedback-prod` na execução agendada de 09/11. Quando a massa ou a data da stack difere da do cenário, a linha diz qual foi usada.
 - **SIM, sem réplica:** só clientes falsos, e a stack não reproduziu o caso. O motivo está na própria linha.
 - **E-MAIL:** a réplica do texto publicado depende da conferência do Gabriel.
 
@@ -153,7 +173,7 @@ A primeira chamada de cada serviço depois da restauração ficou bem abaixo do 
 | Criação | 02:42:54 UTC de 06/11/2026 |
 | Role do alvo | `GerarRelatorioSemanalAgendaRole`, com boundary `feedback-limite-funcoes-dev`, confiança só em `scheduler.amazonaws.com`, nenhuma política gerenciada e uma inline com `lambda:InvokeFunction` só no ARN do alias `live` |
 
-A próxima execução pela expressão é a segunda 09/11/2026 às 08:00 em São Paulo, 11:00 UTC. A API não informa a próxima execução, e o disparo real só pode ser provado depois dessa data.
+A próxima execução pela expressão é a segunda 09/11/2026 às 08:00 em São Paulo, 11:00 UTC. A API não informa a próxima execução, e o disparo real só pode ser provado depois dessa data. **Provado em 09/11/2026**, ver "Execução agendada real, 09/11/2026".
 
 ### 5.5. Acionamento manual: ok
 
@@ -350,17 +370,105 @@ Em cada e-mail, conferir:
 
 O corpo traz o nome do bucket, que inclui o ID da conta, e o SNS acrescenta um rodapé com link de cancelamento que contém o ID da conta e o e-mail do assinante, como em `add-notificacao-critica`, observação M. Não copiar o e-mail para arquivo versionado, e desfocar essas linhas no vídeo e nas capturas.
 
-## Conferência pendente da execução agendada
+## Conferência pendente da execução agendada: feita
 
-Depois de 11:00 UTC de 09/11/2026, com comandos só de leitura:
+O roteiro abaixo, escrito em 06/11, foi cumprido em 10 e 11/11, com dois ajustes: a versão do `live` de dev em 09/11 era a 2, publicada por `add-observabilidade-seguranca`, e não a 1; e a conferência se estendeu a hml e prod, que passaram a existir depois de 06/11.
 
-1. `aws s3api head-object` em `relatorios/2026-11-09.txt`: `LastModified` igual ou posterior a 11:00 UTC de 09/11. Hoje ele é 03:44:21 UTC de 06/11, da execução manual.
-2. Logs da função entre 11:00 e 12:00 UTC: um `START` com `Version: 1`, `Relatório gerado` com `dataReferencia` `2026-11-09`, e nenhuma invocação manual no período.
+1. `aws s3api head-object` em `relatorios/2026-11-09.txt`: `LastModified` igual ou posterior a 11:00 UTC de 09/11. Em 06/11 ele era 03:44:21 UTC, da execução manual.
+2. Logs da função entre 11:00 e 12:00 UTC: um `START`, `Relatório gerado` com `dataReferencia` `2026-11-09`, e nenhuma invocação manual no período.
 3. `Invocations` no alias e `RelatorioGerado` com 1 ponto às 11:00 UTC.
 4. Baixar o objeto e comparar com as 7 partições de 2026-11-02 a 2026-11-08 lidas na hora.
 5. Pedir ao Gabriel a conferência do e-mail `Relatório semanal 2026-11-09` das 08:00 em Brasília.
 
-Isso fecha na stack `Execução agendada` e `Manual seguida de agendada`.
+## Execução agendada real, 09/11/2026
+
+**Validade da evidência:**
+- **Observação:** de 21:44 UTC de 10/11 a 02:55 UTC de 11/11, com uma pausa no meio. Só leituras com o perfil `tc4-admin`: `get-schedule`, `get-metric-statistics`, `filter-log-events`, `head-object`, `get-object`, `list-objects-v2`, `list-object-versions`, `query` no índice `por-data` e `scan --select COUNT`. Nenhuma invocação, nenhuma chamada à API, nenhuma publicação, nenhuma gravação.
+- **Deploy posterior em dev:** a stack `feedback-dev` foi atualizada às 21:35 UTC de 10/11, depois da execução, e o `live` do relatório de dev aponta hoje para a versão 3. Em 09/11 ele apontava para a 2, que é a que aparece no `START`. O objeto de 2026-11-09 continua com o `LastModified` das 11:00:05 de 09/11, então o deploy não o tocou.
+- **Tabelas:** lidas em 10/11. Dev tem 43 itens, hml 2 e prod 0, e em cada ambiente todos os itens estão na janela. Como o registro grava `dataEnvio` com a data do envio, nada registrado depois das 11:00 de 09/11 poderia cair na janela de 2026-11-02 a 2026-11-08. A leitura de 10/11 vale, portanto, como a da hora da execução.
+
+### Agendamento e disparo
+
+| Item | dev | hml | prod |
+|---|---|---|---|
+| `get-schedule` | `feedback-relatorio-semanal-dev`, `ENABLED`, `cron(0 8 ? * MON *)`, `America/Sao_Paulo`, alvo no `live`, `Input` `{}` | `feedback-relatorio-semanal-hml`, idem | `feedback-relatorio-semanal-prod`, idem, `RetryPolicy` 3 e 3600 s, `FlexibleTimeWindow` `OFF`, role com boundary `feedback-limite-funcoes-prod` |
+| `AWS/Scheduler` `InvocationAttemptCount`, grupo `default` | 3 às 11:00 UTC de 09/11, a soma dos três agendamentos, que são os únicos do grupo. Nenhum outro ponto de 03/11 a 10/11 | | |
+| `TargetErrorCount`, `TargetErrorThrottledCount`, `InvocationThrottleCount`, `InvocationDroppedCount` | Nenhum ponto. `list-metrics` só lista `InvocationAttemptCount` no namespace, ou seja, essas métricas nunca foram emitidas na conta | | |
+
+As métricas do Scheduler são por grupo, não por agendamento. A atribuição de cada disparo a um ambiente vem dos logs abaixo: uma única invocação por função, às 11:00, e nenhuma outra de 08/11 a 10/11.
+
+### Execução da função
+
+| Item | dev | hml | prod |
+|---|---|---|---|
+| `RESTORE_START` | 11:00:02.252 | 11:00:25.238 | 11:00:11.253 |
+| `RESTORE_REPORT` | 916,45 ms | 832,41 ms | 1.164,91 ms |
+| `START` | 11:00:03.165, `Version: 2` | 11:00:26.062, `Version: 1` | 11:00:12.405, `Version: 1` |
+| `Relatório gravado` e `Relatório gerado`, em INFO | 11:00:04.916 e 11:00:05.239, `dataReferencia` `2026-11-09`, `quantidadeTotal` 43, `CRITICA` 12, `MEDIA` 23, `BAIXA` 8 | 11:00:27.803 e 11:00:28.046, `quantidadeTotal` 2, 1, 0 e 1 | 11:00:13.989 e 11:00:14.226, `quantidadeTotal` 0, 0, 0 e 0 |
+| `function_arn` da linha | alias `live` | alias `live` | alias `live` |
+| `REPORT` | `Duration` 2.248,76 ms, cobrados 2.491 ms, 1024 MB, 240 MB usados | 2.122,28 ms, 2.359 ms, 1024 MB, 239 MB | 2.121,94 ms, 2.396 ms, 1024 MB, 236 MB |
+| X-Ray | `Sampled: true` | `Sampled: true` | `Sampled: true` |
+| Eventos no grupo de 10:30 a 12:30 UTC | 8: `RESTORE_START`, `RESTORE_REPORT`, `START`, as duas linhas INFO, o EMF, `END` e `REPORT` | 8, os mesmos | 8, os mesmos |
+| `START` de 08/11 00:00 a 10/11 21:00 UTC | 1, o das 11:00 | 1 | 1 |
+| `FALHA_FUNCAO` no mesmo período | 0 | 0 | 0 |
+| WARN ou ERROR | nenhum | nenhum | nenhum |
+| `AWS/Lambda` `Invocations` no alias | 1 às 11:00 | 1 às 11:00 | 1 às 11:00 |
+| `Errors` e `Throttles` | 0 | 0 | 0 |
+| `RelatorioGerado`, em `FeedbackServerless/<amb>` | 1 às 11:00, único ponto de 08/11 a 10/11 | idem | idem |
+| `DataReferenciaRejeitada`, `ErroInterno`, `FalhasGerarRelatorioSemanal` | nenhum ponto | nenhum ponto | nenhum ponto |
+
+### Objeto gravado
+
+| Item | dev | hml | prod |
+|---|---|---|---|
+| `relatorios/2026-11-09.txt` | 16.013 bytes, `LastModified` 11:00:05 UTC | 568 bytes, 11:00:28 UTC | 351 bytes, 11:00:14 UTC |
+| Tipo e criptografia | `text/plain; charset=utf-8`, `AES256`, sem metadados | idem | idem |
+| Já existia? | **Sim, sobrescrito.** Era o objeto da execução adicional do QA de 06/11: 15.652 bytes, ETag `33177362...` e `LastModified` 03:44:21 UTC de 06/11. Agora ETag `a087c619...`. `list-object-versions` mostra uma única versão, `VersionId` `null`, `IsLatest` `true`, sem marcador de exclusão | Não. O bucket só tinha `relatorios/2026-11-08.txt`, da fumaça de 07/11, que continua lá | Não. É o único objeto do bucket |
+| Janela | `2026-11-02 a 2026-11-08` | idem | idem |
+| Comparação com a tabela | **Idêntico byte a byte** ao texto montado a partir das 7 partições do índice `por-data`, com o formato de `FormatadorRelatorio` | **Idêntico byte a byte** | **Idêntico byte a byte** |
+| Números | 43 avaliações: as 38 de 2026-11-05 e as 5 de 2026-11-06, que são as 2 do QA do relatório e as 3 da 6.15 de `add-observabilidade-seguranca`. Soma 198, média 198/43 = 4,6047, `4,60`. `CRITICA` 12, `MEDIA` 23, `BAIXA` 8 | As 2 avaliações da fumaça, com `dataEnvio` 2026-11-07: notas 2 e 9, média `5,50`, `CRITICA` 1, `MEDIA` 0, `BAIXA` 1, `2026-11-07: 2` e os outros 6 dias em 0 | `Média das notas: sem avaliações na janela`, as 3 urgências e os 7 dias em 0, `Avaliações (0)` |
+| Nota individual | Nenhuma linha fora dos blocos do formato | idem | idem |
+
+O objeto de hml tem os mesmos 568 bytes do relatório de 2026-11-08 da fumaça, porque a janela traz as mesmas 2 avaliações e as datas têm o mesmo tamanho. O de prod tem 1 byte a mais que o de 2026-10-26 em dev (350 bytes), por causa de `prod` contra `dev`.
+
+### Aviso aos administradores
+
+| Item | dev | hml | prod |
+|---|---|---|---|
+| Tópico | `feedback-admins-dev` | `feedback-admins-hml` | `feedback-admins-prod` |
+| `NumberOfMessagesPublished` | 1 às 11:00, único ponto de 09/11 | 1 às 11:00 | 1 às 11:00, único ponto de 08/11 a 10/11 |
+| `NumberOfNotificationsDelivered`, `Failed` | 1 e 0 | 1 e 0 | 1 e 0 |
+| `PublishSize` | 526 bytes | 523 bytes | 548 bytes |
+| Corpo esperado pelo formato de `AvisoRelatorio`, com o bucket de cada ambiente e os números do objeto | 526 bytes | 523 bytes | 548 bytes |
+
+Os três tamanhos batem exatamente. O tamanho não prova o texto, que só o e-mail mostra.
+
+### Alarme do relatório
+
+| Alarme | Estado | Histórico de 08/11 a 10/11 |
+|---|---|---|
+| `feedback-falha-gerar-relatorio-semanal-dev` | OK desde 21:23:24 UTC de 06/11, ação só em `feedback-alarmes-dev` | 0 itens |
+| `feedback-falha-gerar-relatorio-semanal-hml` | OK desde 03:50:16 UTC de 07/11, ação só em `feedback-alarmes-hml` | 0 itens |
+| `feedback-falha-gerar-relatorio-semanal-prod` | OK desde 02:59:36 UTC de 08/11, ação só em `feedback-alarmes-prod` | Só a criação, às 02:58:34, e a passagem de `INSUFFICIENT_DATA` para OK, às 02:59:36 de 08/11 |
+
+### Cenários fechados na stack
+
+- **`Execução agendada`:** disparo pelo agendamento em 09/11/2026 às 08:00 em America/Sao_Paulo, com o `Input` `{}`, nos três ambientes. Nos três, a data de referência é `2026-11-09`, no log, na chave e no texto.
+- **`Manual seguida de agendada na mesma data`:** em dev, o relatório manual de 2026-11-09, de 06/11, foi substituído pelo da execução agendada. O bucket tem uma única versão da chave, e o conteúdo é o da execução agendada, com as 3 avaliações da 6.15 que o manual não tinha.
+
+Também ganharam evidência real, sem mudança de status: `Janela de uma segunda-feira` pelo agendamento nos três ambientes, `Janela vazia` e `Aviso da semana vazia` em prod com uma semana realmente vazia, e `Relatório guardado` nos buckets de hml e prod.
+
+### E-mails "Relatório semanal 2026-11-09" que o Gabriel deve ter recebido
+
+Um por ambiente, na assinatura do tópico de administradores de cada um. O horário é o da linha `Relatório gerado`, que sai logo depois do `Publish`.
+
+| # | Ambiente | UTC | Brasília | Janela | Média | CRITICA, MEDIA, BAIXA | Por dia | Localização |
+|---|---|---|---|---|---|---|---|---|
+| 1 | dev | 11:00:05 | 08:00:05 | 2026-11-02 a 2026-11-08 | 4,60 | 12, 23, 8 | 2026-11-05: 38; 2026-11-06: 5; os outros 5 dias em 0 | `s3://<bucket-dev>/relatorios/2026-11-09.txt` |
+| 2 | prod | 11:00:14 | 08:00:14 | 2026-11-02 a 2026-11-08 | `sem avaliações na janela` | 0, 0, 0 | os 7 dias em 0 | `s3://<bucket-prod>/relatorios/2026-11-09.txt` |
+| 3 | hml | 11:00:28 | 08:00:28 | 2026-11-02 a 2026-11-08 | 5,50 | 1, 0, 1 | 2026-11-07: 2; os outros 6 dias em 0 | `s3://<bucket-hml>/relatorios/2026-11-09.txt` |
+
+Em cada um, conferir `Ambiente:` com o ambiente certo, nenhuma descrição (nada com `QA-`, `Aula` ou texto de avaliação), nenhuma nota individual e os acentos corretos. Se as três assinaturas usam o mesmo endereço, os três chegam na mesma caixa, em menos de 30 s. Nenhum e-mail de alarme deve ter chegado por causa dessas execuções.
 
 ## Matriz: relatorio-semanal
 
@@ -368,14 +476,14 @@ Isso fecha na stack `Execução agendada` e `Manual seguida de agendada`.
 
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
-| Agendamento implantado | ok (executado) | Stack: `get-schedule` com `cron(0 8 ? * MON *)`, `America/Sao_Paulo`, `ENABLED`, alvo no alias `live`, `Input` `{}`, `RetryPolicy` 3 e 3600 s, `FlexibleTimeWindow` `OFF` e role com boundary | STACK, 5.4. Inspeção do recurso implantado, que é o que o cenário pede. Nenhum teste lê o template (observação E) |
-| Execução agendada | ok (executado) | `H.GeracaoAutomatica.execucaoAgendada`: relógio em 08:00 de 09/11/2026 em São Paulo e evento `{}`, igual ao `Input` implantado | SIM, sem réplica até 09/11/2026 11:00 UTC. Ver "Conferência pendente da execução agendada" |
+| Agendamento implantado | ok (executado) | Stack: `get-schedule` com `cron(0 8 ? * MON *)`, `America/Sao_Paulo`, `ENABLED`, alvo no alias `live`, `Input` `{}`, `RetryPolicy` 3 e 3600 s, `FlexibleTimeWindow` `OFF` e role com boundary. Em 10/11, o mesmo nos agendamentos de hml e prod, e o disparo real de 09/11 confirma a recorrência | STACK, 5.4 e "Execução agendada real, 09/11/2026", nos três ambientes. Nenhum teste lê o template (observação E) |
+| Execução agendada | ok (executado) | `H.GeracaoAutomatica.execucaoAgendada`: relógio em 08:00 de 09/11/2026 em São Paulo e evento `{}`, igual ao `Input` implantado. Stack: `InvocationAttemptCount` 3 às 11:00 UTC de 09/11, sem erro de alvo, e uma invocação do `live` em cada ambiente, às 11:00:03 em dev, 11:00:12 em prod e 11:00:26 em hml, com `dataReferencia` `2026-11-09`, objeto `relatorios/2026-11-09.txt` idêntico byte a byte à tabela e aviso entregue | STACK em dev, hml e prod, com a data do cenário |
 
 ### Janela de apuração
 
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
-| Janela de uma segunda-feira | ok (executado) | `H.Janela.janelaDeUmaSegunda`, `J.dias`, `J.limitesDaJanela`, `J.janelaDeUmaSegunda`. Stack: referência 2026-11-09 gerou `Janela: 2026-11-02 a 2026-11-08`, com as 7 datas, e o objeto bate byte a byte com essas 7 partições | STACK, execução adicional |
+| Janela de uma segunda-feira | ok (executado) | `H.Janela.janelaDeUmaSegunda`, `J.dias`, `J.limitesDaJanela`, `J.janelaDeUmaSegunda`. Stack: referência 2026-11-09 gerou `Janela: 2026-11-02 a 2026-11-08`, com as 7 datas, e o objeto bate byte a byte com essas 7 partições. Em 09/11, a execução agendada gerou a mesma janela nos três ambientes | STACK, execução adicional e execução agendada |
 | Avaliação no primeiro dia da janela | ok (executado) | `H.Janela.extremosEntram`, `C.Janela.primeiroDia` | SIM, sem réplica. Nenhuma avaliação real no primeiro dia de nenhuma janela usada |
 | Avaliação no último dia da janela | ok (executado) | `H.Janela.extremosEntram`, `C.Janela.ultimoDia`. Stack: com referência 2026-11-07, as avaliações de 2026-11-06, último dia da janela, entraram | STACK, com outra data |
 | Avaliação no dia da referência | ok (executado) | `H.Janela.foraDaJanela`, `C.Janela.foraDaJanela`. Stack: com referência 2026-11-06, a avaliação `-A` de 2026-11-06 ficou fora da lista, dos totais e da média, que seguiu 4,82 | STACK, com outra data |
@@ -401,14 +509,14 @@ Isso fecha na stack `Execução agendada` e `Manual seguida de agendada`.
 
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
-| Janela vazia | ok (executado) | `H.SemanaVazia.janelaVazia`, `F.semanaVazia`, `C.TotaisCompletos.janelaVazia`. Stack: referência 2026-10-26 gravou o objeto com `Avaliações (0)`, os 7 dias e as 3 urgências em zero e `sem avaliações na janela` no lugar da média. O aviso foi publicado e entregue | STACK, execução adicional |
+| Janela vazia | ok (executado) | `H.SemanaVazia.janelaVazia`, `F.semanaVazia`, `C.TotaisCompletos.janelaVazia`. Stack: referência 2026-10-26 gravou o objeto com `Avaliações (0)`, os 7 dias e as 3 urgências em zero e `sem avaliações na janela` no lugar da média. O aviso foi publicado e entregue. Em 09/11, a execução agendada de prod, com a tabela vazia, gravou o mesmo formato, idêntico byte a byte | STACK, execução adicional em dev e execução agendada em prod |
 | Média zero não se confunde com ausência de média | ok (executado) | `H.SemanaVazia.mediaZero`, `C.Media.soZeros`, `F.mediaZero` | SIM, sem réplica. Nenhuma janela real só com notas 0 |
 
 ### Guarda do relatório em bucket privado
 
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
-| Relatório guardado | ok (executado) | `H.Guarda.relatorioGuardado`. Stack: 6 gravações no bucket do output `BucketRelatoriosNome` da stack `feedback-dev`, com `text/plain; charset=utf-8` e `AES256` | STACK, 5.5 |
+| Relatório guardado | ok (executado) | `H.Guarda.relatorioGuardado`. Stack: 6 gravações no bucket do output `BucketRelatoriosNome` da stack `feedback-dev`, com `text/plain; charset=utf-8` e `AES256`. Em 09/11, a execução agendada gravou da mesma forma nos buckets de dev, hml e prod | STACK, 5.5 e execução agendada |
 | Acesso anônimo negado | ok (executado) | Stack: `GET`, `HEAD`, `GET` sem TLS e listagem anônimos com 403 `AccessDenied`, sem conteúdo. Block Public Access com as 4 opções, `IsPublic: false` e `BucketOwnerEnforced` | STACK, 5.7 |
 
 ### Aviso aos administradores
@@ -419,7 +527,7 @@ Isso fecha na stack `Execução agendada` e `Manual seguida de agendada`.
 | Aviso traz o resumo da janela | ok (executado) | `H.Aviso.textoCompletoSemDescricaoNemNota`, `A.textoCompleto`, com o texto completo. Stack: tamanho igual ao corpo com média, 3 urgências e 7 dias de cada relatório | STACK por tamanho, com outra massa. E-MAIL pendente |
 | Aviso sem descrições | ok (executado) | `H.Aviso.textoCompletoSemDescricaoNemNota`, `A.semDescricao`. Stack: o objeto de 2026-11-07 contém o marcador `QA-REL-202611060334-3b9879`, e o aviso da mesma invocação tem 525 bytes, igual ao corpo sem nenhuma descrição | STACK por tamanho. E-MAIL pendente |
 | Aviso sem notas individuais | ok (executado) | `H.Aviso.textoCompletoSemDescricaoNemNota`, `A.textoCompleto`, `A.recebeSoResumoELocalizacao`. Stack: tamanho igual ao corpo esperado | STACK por tamanho. E-MAIL pendente |
-| Aviso da semana vazia | ok (executado) | `A.semanaVazia`, `H.SemanaVazia.janelaVazia`. Stack: o aviso de 2026-10-26 tem 545 bytes, igual ao corpo com os zeros, `sem avaliações na janela` e a localização | STACK por tamanho. E-MAIL pendente |
+| Aviso da semana vazia | ok (executado) | `A.semanaVazia`, `H.SemanaVazia.janelaVazia`. Stack: o aviso de 2026-10-26 tem 545 bytes, igual ao corpo com os zeros, `sem avaliações na janela` e a localização. Em 09/11, o aviso agendado de prod tem 548 bytes, igual ao corpo esperado | STACK por tamanho, em dev e prod. E-MAIL pendente |
 
 ### Acionamento manual
 
@@ -447,7 +555,7 @@ Isso fecha na stack `Execução agendada` e `Manual seguida de agendada`.
 | Cenário | Status | Teste ou evidência | Limite |
 |---|---|---|---|
 | Reexecução com avaliação nova | ok (executado) | `H.Reexecucao.comAvaliacaoNova`. Stack: duas execuções para 2026-11-07, com a avaliação `-B` registrada entre elas. Uma única versão da chave, e o objeto final traz a `-B` | STACK, 5.6, com outra data |
-| Manual seguida de agendada na mesma data | ok (executado) | `H.Reexecucao.manualSeguidaDeAgendada` | SIM, sem réplica até 09/11/2026. O objeto manual de 2026-11-09 já existe, ver "Conferência pendente da execução agendada" |
+| Manual seguida de agendada na mesma data | ok (executado) | `H.Reexecucao.manualSeguidaDeAgendada`. Stack: o objeto manual `relatorios/2026-11-09.txt` de 06/11 (15.652 bytes, 03:44:21 UTC) foi substituído pela execução agendada de 09/11 (16.013 bytes, 11:00:05 UTC). Uma única versão da chave, sem marcador de exclusão, com o conteúdo da execução agendada, que inclui as 3 avaliações de 06/11 que o manual não tinha | STACK em dev, com a data do cenário. hml e prod não tinham relatório manual de 2026-11-09 |
 | Aviso da reexecução | ok (executado) | `H.Reexecucao.avisoDaReexecucao`. Stack: novo aviso em cada reexecução, de 2026-11-06 às 03:35 e de 2026-11-07 às 03:37, entregues | STACK por métrica e tamanho. E-MAIL pendente |
 | Datas de referência diferentes | ok (executado) | `H.Reexecucao.datasDiferentes`. Stack: 4 objetos convivem, `2026-10-26`, `2026-11-06`, `2026-11-07` e `2026-11-09`, cada um com a sua janela | STACK, 5.5 e 5.6 |
 
@@ -476,11 +584,10 @@ A comparação entre execuções é o que prova a ausência da nota nos testes, 
 
 | Situação | Cenários |
 |---|---|
-| Fecham na stack depois de 09/11/2026 (2) | `Execução agendada`, `Manual seguida de agendada` |
 | Dependem de falha provocada, sem tarefa prevista (6) | Os 6 da seção Falhas |
 | Dependem de massa ou horário que a stack não teve (7) | `Avaliação no primeiro dia da janela`, `Avaliação oito dias antes da referência`, `Limite final avaliado no fuso de São Paulo`, `Limite inicial avaliado no fuso de São Paulo`, `Urgência vem do que foi persistido`, `Média zero não se confunde com ausência de média`, `Dia atual calculado no fuso de São Paulo` |
 
-Todos estão ok (executado) nos testes do handler ou do domínio.
+Todos estão ok (executado) nos testes do handler ou do domínio. `Execução agendada` e `Manual seguida de agendada`, que estavam aqui à espera de 09/11/2026, ganharam a réplica na stack em "Execução agendada real, 09/11/2026".
 
 ## Defeitos
 
@@ -491,7 +598,7 @@ Nenhum defeito encontrado no código de produção. Nenhum código de produção
 Não reprovam cenário. As letras A a I vêm do QA local, com o que a stack mostrou. J a P são novas.
 
 - **A. Ligação de produção: confirmada no caminho de sucesso e de rejeição.** A stack executou o que os testes não executam: `new GerarRelatorioSemanalHandler()`, `Recursos`, os clientes reais, o `Metrics` real, o X-Ray real e as variáveis do template. Funcionou nas 9 invocações. Os caminhos de falha de leitura, gravação e publicação seguem sem execução real.
-- **B. Execução agendada real.** Continua sem tarefa em `tasks.md`. O roteiro só de leitura está em "Conferência pendente da execução agendada". A decisão de incluí-lo fica com o orquestrador.
+- **B. Execução agendada real: conferida.** Continua sem tarefa em `tasks.md`, mas o roteiro foi cumprido em 10 e 11/11 nos três ambientes, só com leituras. Ver "Execução agendada real, 09/11/2026". Resolvida.
 - **C. Consistência eventual: não apareceu.** Com 15 s de espera depois de cada registro, as duas avaliações entraram no primeiro acionamento. Esperas menores não foram testadas.
 - **D. Leitura interrompe no primeiro dia com falha.** Sem mudança. A stack não provocou falha.
 - **E. Nenhum teste lê o `template.yaml`.** Sem mudança. A stack confirmou o agendamento implantado hoje, mas uma regressão futura no template continua passando em `mvn -B verify`.
@@ -508,7 +615,7 @@ Não reprovam cenário. As letras A a I vêm do QA local, com o que a stack most
   - A métrica `Errors` do Lambda contou as 3 rejeições. Um alarme de `add-observabilidade-seguranca` baseado em `Errors` vai disparar por entrada inválida do administrador, e não só por falha do sistema. A métrica `DataReferenciaRejeitada` separa os dois casos.
 
   Devolver ao arquiteto para considerar nos alarmes. Severidade baixa.
-- **N. Execuções adicionais deixam objetos e e-mails.** Os acionamentos com 2026-10-26 e 2026-11-09 e a repetição de `{}` foram feitos pelo QA para repetir cenários da spec. O objeto `relatorios/2026-10-26.txt` fica no bucket, e o de 2026-11-09 deve ser substituído na segunda. Os 4 objetos contam no esvaziamento antes de `sam delete`.
+- **N. Execuções adicionais deixam objetos e e-mails.** Os acionamentos com 2026-10-26 e 2026-11-09 e a repetição de `{}` foram feitos pelo QA para repetir cenários da spec. O objeto `relatorios/2026-10-26.txt` fica no bucket, e o de 2026-11-09 foi substituído pela execução agendada de 09/11. Os 4 objetos contam no esvaziamento antes de `sam delete`.
 - **O. README desatualizado.** A seção "Relatório semanal: acionamento manual e download" ainda diz que a função não foi implantada e que nada foi executado na AWS. O comando, as mensagens, a regra da data, o formato do relatório e o formato do aviso conferem com o que a stack produziu. Devolver ao documentador.
 - **P. Bucket e conta no aviso.** O corpo do aviso traz o nome do bucket, que inclui o ID da conta, como a D7 e os riscos do `design.md` já registram. Junto com o rodapé do SNS (observação M de `add-notificacao-critica`), isso pede atenção no vídeo e nas capturas.
 

@@ -1,0 +1,36 @@
+flowchart TB
+    aluno(["Aluno"])
+    agenda["EventBridge Scheduler<br/>segunda, 08:00 de São Paulo"]
+    api["API Gateway<br/>POST /avaliacao"]
+    registrar["Lambda<br/>registrar-avaliacao"]
+    relatorio["Lambda<br/>gerar-relatorio-semanal"]
+    tabela[("DynamoDB<br/>avaliações, índice por-data<br/>e Streams")]
+    bucket[("S3<br/>relatórios")]
+    notificar["Lambda<br/>notificar-critica"]
+    snsAdmins["SNS<br/>tópico de administradores"]
+    admins(["Administradores<br/>e-mail"])
+
+    aluno -->|"1. avaliação por HTTPS"| api
+    api --> registrar
+    registrar -->|"1. grava"| tabela
+    tabela -->|"2. Streams, só criação CRITICA"| notificar
+    notificar -->|"2. aviso crítico"| snsAdmins
+    agenda -->|"3. aciona"| relatorio
+    relatorio -->|"3. lê 7 dias"| tabela
+    relatorio -->|"3. grava"| bucket
+    relatorio -->|"3. resumo"| snsAdmins
+    snsAdmins --> admins
+
+    obs["Observabilidade das três funções<br/>CloudWatch: logs, métricas, alarmes e dashboard<br/>X-Ray: traces<br/>SNS: tópico de alarmes"]
+
+    subgraph entrega["Entrega contínua"]
+        direction LR
+        gha["GitHub Actions<br/>CI no PR, deploy por branch"]
+        role["IAM<br/>role do ambiente"]
+        stacks["SAM e CloudFormation<br/>stacks dev, hml e prod"]
+        gha -->|"OIDC"| role
+        role -->|"sam deploy"| stacks
+    end
+
+    obs -.->|"e-mail de alarme"| admins
+    admins ~~~ entrega

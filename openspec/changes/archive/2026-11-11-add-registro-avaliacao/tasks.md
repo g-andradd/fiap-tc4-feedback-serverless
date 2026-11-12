@@ -56,7 +56,6 @@ Depende de `add-fundacao-projeto` integrado e com o bootstrap aplicado. Tarefas 
 - [x] 8.3 [IA] dev-java: validar com `mvn -B clean verify` e `sam build`, e conferir `aspectjrt` em `lib/`
 - [x] 8.4 [IA] registrar o incidente em `docs/incidentes/2026-11-04-snapstart-aspectjrt.md`
 - [x] 8.5 [Gabriel] Executar os comandos Git fornecidos (commits na `feature/add-registro-avaliacao-fix-snapstart`, push, PR para `develop`), fazer o merge e conferir o deploy verde, que fecha a 6.2. O merge foi feito, o deploy falhou por outro motivo e ficou verde depois da seção 9
-- [ ] 8.6 [Gabriel] Rever o desvio na primeira release do Powertools que traga o commit `f628502`
 
 ## 9. Correção da permissão de tag na API
 - [x] 9.1 [IA] devops: acrescentar `apigateway:TagResource` e `apigateway:UntagResource` ao Allow `ApisNaRegiao` e ao Deny `NegaEscritaEmApiDeOutroAmbiente` em `infra/bootstrap/github-oidc.yaml`, nos três ambientes

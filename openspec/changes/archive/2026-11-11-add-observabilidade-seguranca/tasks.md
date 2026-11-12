@@ -63,9 +63,9 @@ Regra da seção 6, decisão do Gabriel de 05/11/2026: nada é alterado nas fun�
 - [x] 6.14 [IA] qa: conferir o dashboard de dev: widgets da D7, falhas das janelas e restaurações visíveis no período, isolamento por ambiente e ausência do marcador
 - [x] 6.15 [IA] qa: medir, com 1024 MB, a primeira chamada depois da restauração e a duração da restauração em ao menos duas restaurações por função, conforme D13, e comparar com a meta e com a base de 512 MB. Valor acima da meta é registrado e não bloqueia
 - [x] 6.16 [IA] qa: inspecionar as roles das três funções contra as anteriores, o boundary de cada uma e as políticas de deploy de dev
-- [ ] 6.17 [Gabriel] Confirmar no e-mail o recebimento dos alarmes das provas e que nenhum traz descrição ou nota
+- [x] 6.17 [Gabriel] Confirmar no e-mail o recebimento dos alarmes das provas e que nenhum traz descrição ou nota. Confirmado pelo Gabriel: os 12 e-mails de alarme chegaram, sem descrição nem nota
 - [x] 6.18 [IA] qa: registrar o relatório de conformidade em `qa.md` deste change, com as linhas de teste usadas, o ID da conta mascarado, e a observação de que o stream de teste expira com a retenção
-- [ ] 6.19 [IA] qa: conferir no console de cobrança, sem a API do Cost Explorer, o uso de Lambda em GB-s do mês com 1024 MB, contra o nível gratuito (cenário "Computação com 1024 MB"). Não coberto no QA de 06/11/2026: sem acesso ao console de cobrança; indício pelas linhas `REPORT`: 138 invocações e 48,9 GB-s
+- [x] 6.19 [IA] qa: conferir no console de cobrança, sem a API do Cost Explorer, o uso de Lambda em GB-s do mês com 1024 MB, contra o nível gratuito (cenário "Computação com 1024 MB"). Não coberto no QA de 06/11/2026: sem acesso ao console de cobrança; indício pelas linhas `REPORT`: 138 invocações e 48,9 GB-s. Conferido pelo Gabriel no console do Free Tier em 07/11/2026: 235 de 400.000 GB-s do Lambda no mês (0,06%), previsão de 1.009 (0,25%)
 
 ## 7. Documentação
 - [x] 7.1 [IA] documentador: registrar no README o tópico de alarmes e a confirmação da assinatura em cada ambiente, o que cada alarme cobre, o dashboard, o namespace por ambiente, o aquecimento, a memória de 1024 MB, a retenção por ambiente e a mudança no boundary
@@ -74,6 +74,6 @@ Regra da seção 6, decisão do Gabriel de 05/11/2026: nada é alterado nas fun�
 - [x] 7.4 [IA] documentador: acrescentar ao roteiro do vídeo a abertura do dashboard e um alarme disparado com `set-alarm-state`, lembrando que ele gera e-mail
 
 ## 8. hml e prod (na release)
-- [x] 8.1 [Gabriel] Confirmar a assinatura do tópico de alarmes de hml e de prod quando cada stack for implantada. hml confirmada pelo Gabriel em 07/11/2026, conferida às 05:49 UTC; a de prod ainda será confirmada no deploy em prod
+- [x] 8.1 [Gabriel] Confirmar a assinatura do tópico de alarmes de hml e de prod quando cada stack for implantada. hml confirmada pelo Gabriel em 07/11/2026, conferida às 05:49 UTC; prod confirmada pelo Gabriel e conferida em leitura em 11/11/2026
 - [x] 8.2 [IA] qa: com dev e hml implantados, gravar uma linha com marcador num stream de teste do grupo de dev e conferir que o alarme e o dashboard de hml não mudam (cenário "Falha em outro ambiente")
-- [ ] 8.3 [IA] qa: conferir a retenção de 30 dias nos três grupos de prod
+- [x] 8.3 [IA] qa: conferir a retenção de 30 dias nos três grupos de prod. Conferido em leitura em 11/11/2026: 30 dias nos três grupos de prod
