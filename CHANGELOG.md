@@ -2,6 +2,20 @@
 
 Este projeto segue o [versionamento semântico](https://semver.org/lang/pt-BR/).
 
+## [1.0.1] - 2026-11-12
+
+### Documentação da entrega (`add-documentacao-entrega`)
+
+- README reescrito como porta de entrada do projeto.
+- Documentação das funções em `docs/funcoes.md`.
+- Segurança e governança em `docs/seguranca.md`, com o registro de riscos aceitos (incluindo O4 e O5) e a pendência pós-entrega do `aspectjrt`.
+- Monitoramento em `docs/monitoramento.md`.
+- Roteiro do vídeo de demonstração em prod, em `docs/roteiro-video.md`.
+- Relatório do Tech Challenge em `docs/relatorio-tech-challenge.md`.
+- Changes concluídos arquivados no OpenSpec, com as specs consolidadas em `openspec/specs/`.
+- Versão dos módulos Maven em 1.0.1.
+- Código, `template.yaml` e pipelines não mudaram. A única mudança fora da documentação é a versão dos `pom.xml`, feita na branch de release.
+
 ## [1.0.0] - 2026-11-07
 
 ### Fundação do projeto e da entrega contínua (`add-fundacao-projeto`)
