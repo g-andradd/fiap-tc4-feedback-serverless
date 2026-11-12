@@ -128,7 +128,7 @@ Cada função tem uma única responsabilidade:
 ### Escrita
 
 - Documentação em português do Brasil
-- Sem travessão (—) nos textos; escrita direta e humana, sem marcas típicas de texto gerado por IA
+- Sem travessão (o caractere U+2014) nos textos; escrita direta e humana, sem marcas típicas de texto gerado por IA
 
 ## Restrições
 
@@ -170,3 +170,9 @@ Cada função tem uma única responsabilidade:
 - **Aquecimento dos clientes do SDK:** aquecer os clientes de DynamoDB, SNS e S3 no `beforeCheckpoint` das três funções e medir de novo depois. A primeira chamada depois da restauração levou 4,2 s no DynamoDB do registro e 4,3 s no SNS da notificação, perto dos timeouts.
 - **Alarme da notificação:** não depender só de `Errors`, porque a falha parcial do lote termina a invocação normalmente e não aparece nessa métrica. Usar métrica própria ou filtro de log em ERROR.
 - **WARN "No metrics were emitted":** eliminar o aviso que o Powertools grava a cada invocação sem métrica, ou garantir que ele não dispare alarme por nível de log.
+
+## Pendências pós-entrega
+
+Ficam abertas depois de 13/11/2026, fora de qualquer change ativo.
+
+- **Desvio do `aspectjrt` (`add-registro-avaliacao`, design D6, aprovado pelo Gabriel em 04/11/2026):** o jar fica em escopo `runtime` nas três funções enquanto o Powertools 2.11.0 não tratar `LinkageError` no priming do SnapStart. Ele só sai quando as três condições valerem: existir uma release do Powertools com o commit `f628502`; o `PrimingSnapStartTest` de cada função passar sem o jar; e o deploy confirmar `State: Active` e `OptimizationStatus: On` no alias `live` das três funções. Detalhes em `docs/incidentes/2026-11-04-snapstart-aspectjrt.md`.

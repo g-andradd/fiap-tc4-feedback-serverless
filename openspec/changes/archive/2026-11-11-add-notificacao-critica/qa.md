@@ -81,7 +81,7 @@ Worktree `fiap-tc4-qa-notificacao`, com o JDK 25 definido só no comando, porque
 
 | Verificação | Resultado |
 |---|---|
-| Código testado | `HEAD` em `c6bb879`. No working tree, só `openspec/changes/add-fundacao-projeto/tasks.md` e `openspec/changes/add-notificacao-critica/tasks.md` estavam modificados, nenhum deles pelo QA. De `5cb6f4d` para `c6bb879` mudaram só `README.md`, `design.md`, `tasks.md` e 4 linhas do `template.yaml` |
+| Código testado | `HEAD` em `c6bb879`. No working tree, só `openspec/changes/archive/2026-11-11-add-fundacao-projeto/tasks.md` e `openspec/changes/archive/2026-11-11-add-notificacao-critica/tasks.md` estavam modificados, nenhum deles pelo QA. De `5cb6f4d` para `c6bb879` mudaram só `README.md`, `design.md`, `tasks.md` e 4 linhas do `template.yaml` |
 | `mvn -B verify` | `BUILD SUCCESS`, com os mesmos totais: 97, 127 e 65 testes, 0 falhas, 0 erros e 0 ignorados. O módulo `gerar-relatorio-semanal`, que veio da `develop`, compilou sem testes executados |
 | `sam validate --lint --region sa-east-1` | `template.yaml is a valid SAM Template` |
 | `openspec validate add-notificacao-critica --strict` | `Change 'add-notificacao-critica' is valid` |
