@@ -5,12 +5,12 @@
 A versão 1.0.0 está em prod desde 08/11/2026 (execução 42438770120 do workflow Deploy, tag `v1.0.0`). A entrega na FIAP é em 13/11/2026, e este design foi fechado em 10/11/2026, o que deixa três dias úteis para escrever, conferir, arquivar e gravar o vídeo.
 
 Estado de partida:
-- A branch `feature/add-documentacao-entrega` saiu da `develop` em `8195444`, sem a release. O estado do repositório que vale para a documentação é o da `main` (`6eee512`), que só chega à `develop` com o merge do PR #16 (`release/1.0.0` para `develop`). Este design foi feito lendo a `main` exportada para uma pasta temporária.
+- A branch `feature/add-documentacao-entrega` saiu da `develop` em `8195444`. O PR #16 (`release/1.0.0` para `develop`) foi mergeado em `6d7c993`, e a `develop` com a release já entrou na branch. Este design foi feito lendo a `main` (`6eee512`), que tem o mesmo conteúdo da release.
 - O `README.md` tem 827 linhas e mistura visão geral, procedimento e evidência. Ele diz que hml e prod não foram implantados e que o roteiro não foi ensaiado.
 - A conferência somente de leitura de prod feita pela sessão principal em 08/11/2026 não está registrada em nenhum `qa.md`: stack `CREATE_COMPLETE`, três funções `Active`, `On` e 1024 MB na versão 1, retenção de 30 dias, alarmes em OK com ação só no tópico de prod, agendamento `ENABLED`, assinaturas confirmadas, tabela e bucket vazios e nenhuma invocação. Pelo requisito "Estado real das funções por ambiente", o README só pode citar o que está numa fonte. Por isso o QA deste change repete essa leitura e a registra (D14).
-- A primeira execução agendada em prod estava prevista para 09/11/2026 08:00 em São Paulo. Em 10/11/2026, a sessão SSO do perfil `tc4-admin` estava expirada, e não foi possível confirmar o objeto `relatorios/2026-11-09.txt` nem o aviso. O registro pertence ao QA de `add-relatorio-semanal` e precisa ser feito antes do arquivamento (D15).
-- O Gabriel já confirmou os 12 e-mails de alarme (6.17) e o Free Tier em 0,06% dos GB-s do Lambda (6.19). A 8.3 (retenção de 30 dias em prod) foi conferida na leitura de 08/11. As três marcações são da sessão principal, depois do merge do PR #16.
-- `sam local` nunca rodou no projeto. O Docker Desktop 29.2.1 está instalado e o daemon está parado.
+- A primeira execução agendada estava prevista para 09/11/2026 08:00 em São Paulo nos três ambientes. O QA está lendo essa execução e o estado de prod em 10/11/2026. O registro da execução pertence ao QA de `add-relatorio-semanal` e precisa estar feito antes do arquivamento (D15).
+- A 6.17 e a 6.19 de `add-observabilidade-seguranca` já foram marcadas pela sessão principal. A 8.3 será marcada quando o QA registrar a leitura de prod. A 8.6 de `add-registro-avaliacao` saiu das tarefas e virou pendência pós-entrega no `project.md`.
+- `sam local` nunca rodou no projeto, e o Docker não está disponível nesta máquina (D13).
 
 **Fontes.** Consultadas em 10/11/2026:
 - Ensaio do arquivamento com o OpenSpec CLI 1.16.0 numa cópia descartável do `openspec/` da `main`, fora do repositório. Resultados na D15.
@@ -35,16 +35,25 @@ Estado de partida:
 - Automatizar as verificações no CI
 - Exportar o relatório em PDF ou publicar o vídeo
 
-## Pendente de aprovação
+## Decisões do Gabriel de 10/11/2026
 
-As quatro dúvidas do po-analista foram projetadas com a recomendação abaixo. Nenhuma task da seção 3 em diante começa antes de o Gabriel aprovar ou trocar cada uma.
-
-| # | Premissa adotada | O que muda se o Gabriel recusar |
+| # | Decisão | Onde entra |
 |---|---|---|
-| P1 | Relatório em Markdown em `docs/relatorio-tech-challenge.md`. O PDF é exportado pelo Gabriel na hora de enviar e não é versionado | Se o PDF tiver de ser versionado, entra uma task [Gabriel] de exportar e uma [IA] de conferir sigilo e travessão no texto extraído do PDF, porque a busca por `grep` não lê PDF comprimido. Se o formato for outro (DOCX do modelo da FIAP), o Markdown vira rascunho e o diagrama precisa de imagem exportada, porque o Mermaid não renderiza fora do GitHub (D8) |
-| P2 | No vídeo em prod, as avaliações são registradas ao vivo (201, e-mail crítico e relatório com a referência de amanhã), com descrições neutras e sem apagar item à mão. A limpeza é a remoção da stack depois de 13/11, esvaziando o bucket antes | Se a tabela tiver de voltar a 0 itens depois do vídeo, o roteiro ganha um passo de exclusão por chave com o perfil administrativo, e a seção "Depois da gravação" muda. Se o vídeo tiver de rodar em hml, o requisito "Recursos de produção" da spec deixa de valer e a spec precisa de ajuste pelo po-analista |
-| P3 | Arquivamento como penúltimo passo deste change, depois do merge do PR #16, da atualização da branch e do estado final do README. O próprio `add-documentacao-entrega` é arquivado no último commit da mesma branch. A 8.6 de `add-registro-avaliacao` fica aberta, com o motivo | Se o arquivamento for depois do vídeo, os links para `qa.md` ficam no caminho atual no commit de entrega, e o arquivamento vira um PR separado só de `openspec/` e links. Se a 8.6 tiver de ser fechada, ela é marcada como "revisão adiada" com `[x]`, o que deixa `openspec validate --archived` verde, mas registra como feito algo que não foi |
-| P4 | Release 1.0.1 só de documentação, com a versão nos `pom.xml` mudada na branch de release, fora deste change, antes de remover hml | Sem release, a documentação fica só na `develop`, que é a branch padrão, e a `main` e a tag `v1.0.0` ficam com o README antigo. Ver o efeito da mudança de versão em Risks |
+| 1 | Relatório em Markdown em `docs/relatorio-tech-challenge.md`. O PDF é exportado pelo Gabriel na hora de enviar e não é versionado | D7, D8 |
+| 2 | No vídeo em prod, as avaliações são registradas ao vivo (201, e-mail crítico e relatório com a referência de amanhã), com descrições neutras e sem apagar item à mão. prod só é removido depois da nota da FIAP, esvaziando o bucket antes. A data de remoção de hml foi ajustada em 11/11 (decisão 7) | D4, D6, D14 |
+| 3 | Arquivamento dos cinco changes e deste no fim do change, depois do estado final dos documentos. A 8.6 de `add-registro-avaliacao` saiu das tarefas e é pendência pós-entrega no `project.md` e em `docs/seguranca.md`, com a condição de remoção do `aspectjrt`. O repositório entregue passa em todas as validações do OpenSpec, inclusive a dos changes arquivados | D4, D15 |
+| 4 | Release 1.0.1 só de documentação, com a versão dos `pom.xml` mudada na branch de release, fora deste change. Vai para prod antes da gravação, com conferência só de leitura de SnapStart `Active` e `On` nas três funções de prod logo depois | D14, tasks, depois do commit de entrega |
+| 5 | Sem Docker disponível, o `sam local` fica documentado e marcado como não executado. A execução sai das tarefas obrigatórias | D13 |
+| 6 | Prazos: relatório e roteiro prontos para revisão até 11/11 12:00; README, `docs/funcoes.md`, `docs/seguranca.md` e `docs/monitoramento.md` até 11/11 18:00; depois, verificações, arquivamento e comandos da release 1.0.1 | D16, tasks |
+
+## Revisão do Gabriel de 11/11/2026
+
+| # | Decisão | Onde entra |
+|---|---|---|
+| 7 | hml só é removido depois da entrega de 13/11/2026; prod, depois da nota | D4, D6, D14, tasks |
+| 8 | Roteiro com a seção "Ensaio em hml" antes da gravação; gravação em 12/11/2026 com a data de referência `2026-11-13`; bloco 5 com 30 s a mais para os changes arquivados, um `qa.md` e `.claude/agents`, total de 11 min 30 s | D6 |
+| 9 | Relatório no modelo da FIAP: cabeçalho com `[LINK DO VÍDEO]` até um PR próprio depois da gravação, seções numeradas de 1 a 13 (12 Processo de desenvolvimento, 13 Aprendizados), apêndice Evidências com as fontes e tom impessoal fora da seção 13 | D7 |
+| 10 | Diagrama do relatório em imagem `docs/img/arquitetura.png`, gerada com o mermaid-cli a partir de `docs/img/arquitetura.mmd`, versão enxuta para o PDF. O Mermaid detalhado fica só no README | D1, D8 |
 
 ## Decisions
 
@@ -57,10 +66,10 @@ Cada tabela de configuração tem um único dono. Os outros documentos citam o a
 | `docs/funcoes.md` | As três funções e a configuração comum | Permissões de cada função; variáveis de ambiente; erros e efeitos; linhas de log; métricas do Powertools | `template.yaml`; specs `registro-avaliacao`, `notificacao-critica` e `relatorio-semanal`; handlers e `Respostas.java`; designs dos três changes de função; seções do README atual que saem dele (D2) |
 | `docs/seguranca.md` | Controles da nuvem, governança do repositório e registro de riscos aceitos | Registro de riscos; roles de deploy e negações; criptografia e TLS por recurso; onde fica o dado do aluno | `infra/bootstrap/github-oidc.yaml`; `template.yaml`; specs `seguranca`, `fundacao-cloud` e `entrega-continua`; leitura por `gh api` (D17); Risks dos cinco designs; decisões e observações dos cinco `qa.md` |
 | `docs/monitoramento.md` | Logs, métricas, alarmes, dashboard, X-Ray, teste de alarme e nível gratuito | Configuração dos alarmes; widgets do dashboard; retenção por ambiente; conta do nível gratuito | `template.yaml`; spec `observabilidade`; design de `add-observabilidade-seguranca` (D3 a D8, D14, D17); `qa.md` dele (tempos de volta a OK, janelas A, B e C); seção "Monitoramento e alarmes" do README atual |
-| `docs/roteiro-video.md` | Preparação, blocos com tempo, cuidados na tela, depois da gravação | Blocos e tempos; lista do que desfocar | Roteiro atual; leitura de prod deste change (D14); premissa P2 |
+| `docs/roteiro-video.md` | Preparação, blocos com tempo, cuidados na tela, depois da gravação | Blocos e tempos; lista do que desfocar | Roteiro atual; leitura de prod deste change (D14); decisão 2 |
 | `docs/relatorio-tech-challenge.md` | Seções do modelo da FIAP, resumindo e apontando para `docs/` | Endpoints com exemplos de requisição e resposta; números de qualidade | `project.md`, Entregáveis; spec `registro-avaliacao`; saída de `mvn -B verify`; execução local (D13); os outros documentos |
 
-O diagrama de arquitetura é a única repetição permitida, e as duas cópias são idênticas (D8). A coleção Postman não muda.
+O diagrama tem duas formas com papéis diferentes: o Mermaid detalhado só no README e a imagem enxuta no relatório, gerada de `docs/img/arquitetura.mmd` (D8). A coleção Postman não muda.
 
 Alternativa descartada: manter as tabelas no README e fazer os documentos de `docs/` apontarem para ele. O README atual já tem 827 linhas, e a observação K de `add-observabilidade-seguranca` mostra que a mesma informação em dois lugares diverge.
 
@@ -104,7 +113,9 @@ Alternativa descartada: um arquivo por função. Três arquivos para repetir a m
 ### D4. Estrutura de `docs/seguranca.md` e do registro de riscos
 Uma seção por tema da spec, na ordem dela, mais "Roles de deploy e manutenção do bootstrap" e "Registro de riscos aceitos" no fim.
 
-**Onde fica o dado do aluno:** tabela com tabela de avaliações, relatórios em `relatorios/`, lotes descartados em `aws/lambda/`, e-mail do aviso crítico e o backup de sistema da tabela de prod depois da remoção da stack, que o PITR mantém por 35 dias. Colunas: o que guarda, criptografia em repouso, expiração.
+**Onde fica o dado do aluno:** tabela com tabela de avaliações, relatórios em `relatorios/`, lotes descartados em `aws/lambda/`, e-mail do aviso crítico e o backup de sistema da tabela de prod. Colunas: o que guarda, criptografia em repouso, expiração. A expiração é dita como é: nenhum desses lugares expira sozinho enquanto a stack existe. O dado de hml some com a remoção da stack depois da entrega de 13/11 (decisão 7). O de prod fica até a remoção, que só acontece depois da nota da FIAP, com o bucket esvaziado antes; como a tabela de prod tem PITR, a remoção gera um backup de sistema mantido por 35 dias. O documento não promete data de remoção.
+
+**Pendência pós-entrega:** uma seção curta com o desvio do `aspectjrt` em escopo `runtime`, a condição de remoção (primeira release do Powertools com o commit `f628502`) e o link para o incidente. É a mesma pendência que o `project.md` registra (decisão 3), e o risco correspondente no registro aponta para ela.
 
 **Registro de riscos:** tabela com as colunas Id, Risco, Origem, Motivo da aceitação, Mitigação, Decisão (data e autor, quando houver) e Revisão (condição, quando houver). Ids `R01` a `Rnn`, em ordem de origem. O link para uma linha é feito pelo Id com âncora na seção, porque o GitHub não cria âncora para linha de tabela. `docs/monitoramento.md` cita `R` de cada risco de alarme. Sem mitigação, a célula diz "Nenhuma", com o motivo na coluna anterior.
 
@@ -124,24 +135,38 @@ Todos os nomes com o sufixo `-prod` e a stack `feedback-prod`.
 
 **Preparação, sem gravar nada na tabela:** conferir 0 itens em `feedback-avaliacoes-prod` com `aws dynamodb scan --select COUNT`, porque o `ItemCount` do `describe-table` só é atualizado a cada seis horas; assinaturas confirmadas nos tópicos de administradores e de alarmes de prod; três alarmes em OK; `State` `Active` nas versões do alias `live`; terminal com fonte grande e sem histórico; caixa de e-mail aberta numa pasta que não mostre outras mensagens. Aquecimento opcional só com uma requisição rejeitada (400) e com a data `2026-02-30` no relatório, que não gravam, sem mostrar a resposta da data rejeitada.
 
-**Blocos, total estimado de 11 minutos:**
+**Ensaio em hml:** uma seção antes da gravação manda percorrer os blocos 2 a 4 em hml, com os nomes `-hml`, para conferir comandos, tempos e o que precisa ser desfocado. hml pode receber avaliações de teste. O ensaio não muda a regra de prod: nada é gravado em `feedback-avaliacoes-prod` antes da gravação.
+
+**Data:** gravação em 12/11/2026, com a data de referência `2026-11-13` no acionamento manual do relatório, para a avaliação registrada no dia entrar na janela.
+
+**Blocos, total estimado de 11 min 30 s:**
 
 | Bloco | Tempo | Conteúdo |
 |---|---|---|
 | 1. Abertura | 1 min | Problema e diagrama do README |
-| 2. Aplicação funcionando | 4 min | `POST /avaliacao` com nota 9 (201, BAIXA), com corpo inválido (400), com nota 2 (201, CRITICA) e o e-mail crítico; relatório pelo alias `live` com a referência de amanhã, a resposta, o objeto no S3 e o e-mail do aviso |
+| 2. Aplicação funcionando | 4 min | `POST /avaliacao` com nota 9 (201, BAIXA), com corpo inválido (400), com nota 2 (201, CRITICA) e o e-mail crítico; relatório pelo alias `live` com a referência `2026-11-13`, a resposta, o objeto no S3 e o e-mail do aviso |
 | 3. Funções ativas | 2 min | Console do Lambda: as três funções, o gatilho de cada uma (API, Streams com filtro, Scheduler), alias `live` com SnapStart `On`. Se a D14 tiver registrado a execução agendada de 09/11, mostrar o objeto `relatorios/2026-11-09.txt` como prova do agendamento |
 | 4. Configurações | 3,5 min | Trechos do `template.yaml`; execução do Deploy com a aprovação em prod; role de deploy com OIDC e o boundary; criptografia e política do bucket; dashboard de prod e um único `set-alarm-state`, que gera e-mail real |
-| 5. Encerramento | 0,5 min | Repositório, documentação e relatório |
+| 5. Encerramento | 1 min | Repositório, documentação e relatório; os changes arquivados em `openspec/changes/archive/`, um `qa.md` e os agentes em `.claude/agents` |
 
 **Cuidados na tela:** a lista da spec (ID da conta no menu, nos ARNs, nas variáveis de ambiente e no nome do bucket; e-mail no corpo e no rodapé; identificador da API na URL) e a regra de mostrar só a mensagem da data rejeitada. Descrições neutras, sem nome de pessoa.
 
-**Depois da gravação (P2):** as avaliações ficam na tabela e os relatórios no bucket até a remoção da stack depois de 13/11; os e-mails ficam na caixa do Gabriel; antes do `sam delete`, o bucket é esvaziado; a tabela de prod deixa um backup de sistema por 35 dias, pelo PITR. A remoção de hml e prod é decisão do Gabriel e fica fora deste change.
+**Pré-condição da gravação:** a release 1.0.1 já está em prod, e a conferência de leitura logo depois dela mostrou `State` `Active` e `OptimizationStatus` `On` nas três funções (decisão 4). A preparação repete essa leitura no dia.
+
+**Depois da gravação (decisão 2):** as avaliações, os relatórios e os e-mails gerados no vídeo ficam onde estão; nada é apagado à mão. hml continua no ar até a entrega de 13/11 e só então pode ser removido (decisão 7). prod continua no ar até a nota da FIAP; só então o bucket é esvaziado e a stack removida, e a tabela de prod deixa um backup de sistema por 35 dias, pelo PITR. Os comandos de remoção são os da implantação no README, com o link.
 
 Alternativa descartada: gravar em hml, onde sujar dado não importa. A spec pede prod, e prod é o ambiente que o enunciado quer ver ativo.
 
 ### D7. Relatório do Tech Challenge
-Arquivo `docs/relatorio-tech-challenge.md` (P1). Títulos de nível 2 na ordem do `project.md`, Entregáveis, item 3: Introdução; Arquitetura; Endpoints; Configuração do projeto, com a subseção Execução local (D13); Qualidade do código; Collections para teste; Repositório; e as seções extras Modelo de cloud, Segurança e governança, Monitoramento e Documentação das funções.
+Arquivo `docs/relatorio-tech-challenge.md` (decisões 1 e 9).
+
+**Cabeçalho do modelo da FIAP:** título, aluno, curso, fase, data de entrega, URL do repositório e `[LINK DO VÍDEO]`. O marcador fica até a gravação e é trocado pelo link num PR próprio depois dela (tasks, depois do commit de entrega). Como não tem parênteses, ele não é link e não entra na verificação da D11.
+
+**Seções numeradas, títulos de nível 2:** 1 Introdução; 2 Arquitetura; 3 Endpoints; 4 Configuração do projeto, com a subseção Execução local (D13); 5 Qualidade do código; 6 Collections para teste; 7 Repositório; 8 Modelo de cloud; 9 Segurança e governança; 10 Monitoramento; 11 Documentação das funções; 12 Processo de desenvolvimento (SDD com OpenSpec, agentes, Gitflow, aprovação do Gabriel antes do código); 13 Aprendizados. As seções 1 a 11 seguem a ordem do `project.md`. Os números entram no slug da âncora (`#1-introdução`), e quem apontar para uma seção usa o slug com o número.
+
+**Apêndice Evidências:** depois da seção 13, uma tabela com cada afirmação verificável do relatório e a fonte (seção de `qa.md` arquivado, execução do workflow, leitura deste change). As seções do corpo citam o apêndice em vez de repetir a fonte.
+
+**Tom:** impessoal nas seções 1 a 12 e no apêndice. A seção 13 é em primeira pessoa, porque é a experiência do autor.
 
 - **Links para `docs/`:** relativos, e o texto do link é o caminho (`[docs/seguranca.md](seguranca.md)`). No GitHub o link funciona; no PDF, o leitor vê o caminho e acha o arquivo pela URL da seção Repositório.
 - **Endpoints:** tabela com os quatro casos (201, 400 `ENTRADA_INVALIDA`, 400 `CORPO_INVALIDO`, 500 `ERRO_INTERNO`), exemplo de requisição e corpo de resposta de cada um, copiados da spec, e a URL com `<ID_DA_API>`.
@@ -151,16 +176,24 @@ Arquivo `docs/relatorio-tech-challenge.md` (P1). Títulos de nível 2 na ordem d
 
 Alternativas descartadas:
 - Links absolutos para `github.com/.../blob/develop/docs/...`. Funcionam no PDF, mas não são verificáveis antes do merge e quebram se a branch padrão mudar.
-- Relatório na raiz. O agente documentador já prevê `docs/relatorio-tech-challenge.md`.
+- Fontes no corpo de cada seção. Polui o texto que o avaliador lê; o apêndice concentra a evidência.
+- Esperar o vídeo para fechar o relatório. Atrasaria o commit de entrega; o marcador e o PR próprio resolvem.
 
-### D8. Diagrama em Mermaid, com cópia idêntica no README e no relatório
-Um `flowchart LR` com: aluno, API Gateway (HTTP API), as três funções, DynamoDB com Streams e o filtro de criação CRITICA, EventBridge Scheduler (segunda 08:00), tópico de administradores com e-mail, tópico de alarmes com e-mail, bucket de relatórios, CloudWatch (logs, filtros, alarmes, dashboard) e X-Ray. As ligações seguem a seção Arquitetura do `project.md`, mais alarme para tópico de alarmes. Sem ícones e sem recurso de versão recente do Mermaid, porque a página do GitHub não diz qual versão está em uso.
+### D8. Diagramas: Mermaid detalhado no README e imagem enxuta no relatório (decisão 10)
+**README:** um `flowchart LR` detalhado com aluno, API Gateway (HTTP API), as três funções, DynamoDB com Streams e o filtro de criação CRITICA, EventBridge Scheduler (segunda 08:00), tópico de administradores com e-mail, tópico de alarmes com e-mail, bucket de relatórios, CloudWatch (logs, filtros, alarmes, dashboard) e X-Ray. Sem ícones e sem recurso de versão recente do Mermaid, porque a página do GitHub não diz qual versão está em uso.
 
-O mesmo bloco aparece no README e no relatório. O QA confere com `diff` dos dois blocos extraídos e abre os dois arquivos no GitHub depois do push.
+**Relatório:** a imagem `docs/img/arquitetura.png`, referenciada como `![...](img/arquitetura.png)`, gerada de `docs/img/arquitetura.mmd` com o mermaid-cli (`mmdc -i docs/img/arquitetura.mmd -o docs/img/arquitetura.png`, pelo `npx @mermaid-js/mermaid-cli`, fora do repositório e sem dependência nova no projeto). O `.mmd` é a versão enxuta, legível numa página de PDF, e cobre os três fluxos do `project.md`:
+- registro: aluno, API Gateway, `registrar-avaliacao`, DynamoDB;
+- aviso crítico: DynamoDB Streams com o filtro, `notificar-critica`, tópico de administradores, e-mail;
+- relatório: EventBridge Scheduler, `gerar-relatorio-semanal`, bucket e tópico de administradores;
+mais CloudWatch, X-Ray e o tópico de alarmes, agrupados.
+
+**Verificação:** a imagem e o `.mmd` existem no commit; o `.mmd` tem os nós e as ligações dos três fluxos acima; a imagem é regenerada do `.mmd` final e conferida a olho; o link da imagem resolve pelo script da D11, que também lê links de imagem. Os dois diagramas não são comparados entre si, porque têm níveis de detalhe diferentes de propósito.
 
 Alternativas descartadas:
-- Imagem PNG ou SVG. Exige ferramenta externa para gerar e atualizar, e o requisito pede que o diagrama apareça sem ferramenta externa. O agente documentador já manda usar Mermaid.
-- Diagrama só no relatório, com link no README. O README é a primeira tela do avaliador.
+- O mesmo bloco Mermaid no README e no relatório. O Mermaid não renderiza no PDF exportado, e o diagrama detalhado não cabe legível numa página.
+- Imagem também no README. O Mermaid renderiza no GitHub e é editável sem regenerar arquivo.
+- Imagem desenhada à mão em ferramenta gráfica. Sem fonte versionada para atualizar.
 
 ### D9. Marcadores e verificação de sigilo
 Marcadores nos documentos de entrega: `<ID_DA_CONTA>`, `<ID_DA_API>` e `<EMAIL_ADMIN>`. Os `qa.md` antigos usam `<conta>` e `<email>` e ficam como estão.
@@ -217,40 +250,25 @@ A busca é feita nos arquivos criados ou alterados pelo change, porque `CLAUDE.m
 
 Esperado: nenhuma saída. A busca usa os bytes do caractere em UTF-8 com `grep -F`, porque o `grep -P` do Git Bash recusou o locale nesta máquina. Os documentos não podem citar o caractere nem para dizer que ele é proibido.
 
-### D13. Execução local com `sam local`
-**Função e evento:** `RegistrarAvaliacao`, com um evento HTTP API de payload 2.0 em que o corpo tem `descricao` vazia e `nota` 11. A resposta esperada é 400 com `ENTRADA_INVALIDA` citando os dois campos. O evento tem só os campos que o handler lê: `version`, `routeKey`, `rawPath`, `headers`, `requestContext` com `http.method`, `http.path` e `requestId`, `body` e `isBase64Encoded`.
+### D13. Execução local com `sam local` (decisão 5)
+O Docker não está disponível, então a execução local fica documentada no relatório e marcada como "Não executado: Docker indisponível na máquina de desenvolvimento em 10/11/2026". A execução não é tarefa obrigatória deste change.
 
-**Arquivos:** `docs/sam-local/evento-entrada-invalida.json` e `docs/sam-local/variaveis.json`, dentro de `docs/`, que o requisito "Somente documentação" permite. O relatório mostra o conteúdo dos dois arquivos, como o requisito pede, e o QA confere que o texto do relatório é igual ao dos arquivos.
+**Função e evento:** `RegistrarAvaliacao`, com um evento HTTP API de payload 2.0 em que o corpo tem `descricao` vazia e `nota` 11, e a resposta esperada 400 com `ENTRADA_INVALIDA` citando os dois campos. O evento tem só os campos que o handler lê: `version`, `routeKey`, `rawPath`, `headers`, `requestContext` com `http.method`, `http.path` e `requestId`, `body` e `isBase64Encoded`. O relatório mostra o JSON do evento e o das variáveis (`{"RegistrarAvaliacao": {"TABELA_AVALIACOES": "feedback-avaliacoes-local"}}`, nome que não existe na conta) e manda salvá-los como `evento.json` e `variaveis.json`. Nenhum arquivo novo entra no repositório.
 
-**Variáveis:** `{"RegistrarAvaliacao": {"TABELA_AVALIACOES": "feedback-avaliacoes-local"}}`. É um nome que não existe na conta: o caminho 400 nunca chama o DynamoDB, e, se um dia chamasse, a chamada falharia em vez de gravar em dev.
+**Comando**, da raiz, com o JDK 25 no `JAVA_HOME` (no Git Bash do Windows, `sam.cmd`): `mvn -B install`, `sam build` e `sam local invoke RegistrarAvaliacao --event evento.json --env-vars variaveis.json --parameter-overrides Stage=dev`.
 
-**Comando**, da raiz, com o JDK 25 no `JAVA_HOME` (no Git Bash do Windows, `sam.cmd`):
+**Resultado esperado:** a resposta 400 com o corpo da spec `registro-avaliacao`. Como não houve execução, o relatório mostra só a resposta, que é a da spec e dos testes do handler, e não mostra linhas de log.
 
-```bash
-mvn -B install
-sam build
-sam local invoke RegistrarAvaliacao \
-  --event docs/sam-local/evento-entrada-invalida.json \
-  --env-vars docs/sam-local/variaveis.json \
-  --parameter-overrides Stage=dev
-```
+**O que exige:** Docker em execução, o `sam build` antes e o download da imagem `java:25` de `public.ecr.aws/lambda` na primeira vez. Não exige credencial.
 
-**O que exige:** Docker em execução (task do Gabriel), o `sam build` antes, e o download da imagem `java:25` de `public.ecr.aws/lambda` na primeira vez. Não exige credencial nem recurso de dev.
-
-**O que acessa na AWS:** nada. O handler cria o cliente do DynamoDB, mas a validação rejeita antes de qualquer chamada. O aquecimento só roda no `beforeCheckpoint`, que não acontece fora do SnapStart. As métricas EMF e o log vão para o terminal, não para o CloudWatch. O documento diz isso com base na saída registrada.
+**O que acessa na AWS:** nada, pela leitura do código: a validação rejeita antes de qualquer chamada ao DynamoDB, e o aquecimento só roda no `beforeCheckpoint`, que não acontece fora do SnapStart. O texto diz que isso vem da leitura do código, não de execução.
 
 **O que não reproduz:** SnapStart, snapshot e restauração; o aquecimento dos clientes; alias `live` e versões; API Gateway real, com rota e limite de taxa; IAM, roles e boundary; os gatilhos reais (Streams com filtro, Scheduler); envio de trace ao X-Ray; métricas, filtros de log, alarmes e retenção; a CPU proporcional à memória.
 
-**Resultado esperado:** o documentador escreve a resposta e as linhas de log a partir da saída real da execução registrada no `qa.md` deste change, sem inventar. Qualquer aviso do X-Ray por falta de contexto é mostrado como está e explicado na lista do que não reproduz.
-
-**Prazo:** estimado em até uma hora, contando o download da imagem e dois `sam build`. Cabe no prazo.
-
-**Se não rodar** (Docker não sobe, imagem indisponível, erro do SAM): o QA registra o erro, e a decisão volta ao Gabriel entre duas saídas. A primeira é o caminho 201 contra a tabela de dev, que grava um item em `feedback-avaliacoes-dev` e precisa de credencial, mas não muda o requisito. A segunda é documentar o comando como não executado, o que deixa o cenário "Comando executado" sem cobertura e exige mudança de spec pelo po-analista.
-
 Alternativas descartadas:
-- Caminho 201 contra a tabela de dev como exemplo principal. Grava item em dev, exige credencial e dispara a notificação de dev se a nota for crítica.
-- `sam local start-api` com `curl`. Mais uma porta e mais um processo para o mesmo resultado.
-- `GerarRelatorioSemanal` com data inválida. A resposta traz `errorType` e `stackTrace` (risco aceito), que é o que o vídeo manda esconder.
+- Arquivos de evento versionados em `docs/sam-local/`. Sem execução, seriam dois arquivos a mais só para repetir o que o relatório já mostra.
+- Caminho 201 contra a tabela de dev. Grava item em dev, exige credencial e dispara a notificação de dev se a nota for crítica.
+- `GerarRelatorioSemanal` com data inválida. A resposta traz `errorType` e `stackTrace` (risco aceito).
 
 ### D14. Estado por ambiente e a leitura que o sustenta
 A tabela do README tem nove linhas, uma por função e ambiente, com as colunas Estado, Data da última conferência e Fonte. Estados possíveis: "Ativa e conferida", "Implantada, sem conferência funcional", "Removida em <data>, conferida antes em <data>".
@@ -261,16 +279,18 @@ A tabela do README tem nove linhas, uma por função e ambiente, com as colunas 
 | hml | Seção "Release 1.0.0 em hml (07/11/2026)" de `add-fundacao-projeto/qa.md`. A notificação em hml, se não estiver nessa seção, fica como implantada sem conferência funcional, com a execução do workflow como fonte |
 | prod | Leitura somente de leitura deste change, registrada no `qa.md` dele, e a execução 42438770120 |
 
-**Leitura de prod pelo QA**, com o perfil `tc4-admin` e só `describe`, `get` e `list`: status da stack; `get-alias` e `get-function-configuration` das três funções (`State`, `OptimizationStatus`, `MemorySize`, versão); retenção dos três grupos (fecha a 8.3); `describe-alarms` (estado e ações); estado do agendamento; assinaturas dos dois tópicos; contagem de itens com `scan --select COUNT`; objetos do bucket; e, se houver, o objeto e o log da execução agendada de 09/11. A mesma leitura é feita em dev e hml para a data de conferência da tabela.
+**Leitura de prod pelo QA**, com o perfil `tc4-admin` e só `describe`, `get` e `list`: status da stack; `get-alias` e `get-function-configuration` das três funções (`State`, `OptimizationStatus`, `MemorySize`); retenção dos três grupos (fecha a 8.3); `describe-alarms` (estado e ações); estado do agendamento; assinaturas dos dois tópicos; contagem de itens com `scan --select COUNT`; objetos do bucket; e, se houver, o objeto e o log da execução agendada de 09/11. A mesma leitura é feita em dev e hml para a data de conferência da tabela.
 
-O README diz "estado em <data>" no título da tabela. Remoções posteriores ao commit de entrega não aparecem nele (Risks).
+O README diz "estado em <data>" no título da tabela e não cita número de versão, porque a release 1.0.1 publica versões novas em hml e prod depois do commit de entrega (Risks). A remoção de hml depois da entrega de 13/11 e a de prod depois da nota acontecem depois do commit de entrega e não aparecem na tabela; uma frase abaixo dela diz isso.
 
 Alternativa descartada: citar a leitura da sessão principal de 08/11. Não está registrada em fonte do repositório, e o requisito exige fonte.
 
-### D15. Arquivamento
-**Pré-condições:** PR #16 mergeado e a branch atualizada com `git merge origin/develop` pelo Gabriel; registro da execução agendada de 09/11 no `qa.md` de `add-relatorio-semanal`, se ela tiver acontecido; marcações da sessão principal em `add-observabilidade-seguranca/tasks.md`: 6.17 e 6.19 com "confirmado pelo Gabriel em <data>" e 8.3 com a referência à leitura da D14; a 8.6 de `add-registro-avaliacao` ganha, logo abaixo, a linha "Continua aberta: depende da primeira release do Powertools com o commit `f628502`, que não saiu até <data>"; o README e os documentos já no estado final.
+### D15. Arquivamento (decisão 3)
+**Critério:** o repositório entregue passa em `openspec validate --all --strict` e em `openspec validate --archived`, com todos os changes arquivados sem caixa aberta.
 
-**Comandos**, na ordem do backlog, um change por vez, pela sessão principal:
+**Pré-condições:** registro da execução agendada de 09/11 no `qa.md` de `add-relatorio-semanal`; a 8.3 de `add-observabilidade-seguranca` marcada com a referência à leitura de prod registrada pelo QA (a 6.17 e a 6.19 já estão marcadas, e a 8.6 de `add-registro-avaliacao` já saiu das tarefas); `openspec list` mostrando os cinco changes com todas as tarefas concluídas; os documentos no estado final.
+
+**Comandos**, na ordem do backlog, um change por vez, pela sessão principal, no mesmo dia:
 
 ```bash
 openspec archive add-fundacao-projeto -y
@@ -280,59 +300,60 @@ openspec archive add-relatorio-semanal -y
 openspec archive add-observabilidade-seguranca -y
 ```
 
-O que o ensaio mostrou, numa cópia descartável:
-- Sem `--skip-specs`, cada archive cria ou atualiza as specs em `openspec/specs/`. A ordem importa só para `entrega-continua`: `add-fundacao-projeto` cria a spec, com o Purpose dele, e `add-observabilidade-seguranca` acrescenta 1 requisito. O CLI avisa que o Purpose do segundo delta é ignorado, o que é o esperado.
-- Com tarefa aberta e `-y`, o CLI avisa e segue. `add-registro-avaliacao` arquivou com 42 de 43.
-- O diretório vira `openspec/changes/archive/<AAAA-MM-DD>-<change-id>/`, com a data do dia em que o comando roda. Os cinco devem rodar no mesmo dia, e o ajuste de links usa a data real gerada.
+O que o ensaio mostrou, numa cópia descartável da `main`:
+- Sem `--skip-specs`, cada archive cria ou atualiza as specs em `openspec/specs/`. A ordem importa só para `entrega-continua`: `add-fundacao-projeto` cria a spec, com o Purpose dele, e `add-observabilidade-seguranca` acrescenta 1 requisito. O aviso de Purpose ignorado do segundo delta é esperado.
+- Com tarefa aberta, o `-y` só avisa e segue. Por isso a pré-condição de tarefas concluídas é conferida antes, com `openspec list`, e não pelo archive.
+- O diretório vira `openspec/changes/archive/<AAAA-MM-DD>-<change-id>/`, com a data do dia do comando. O ajuste de links usa a listagem real.
 - Resultado: 7 specs, com 4, 5, 12, 8, 14, 15 e 6 requisitos (`fundacao-cloud`, `entrega-continua`, `registro-avaliacao`, `notificacao-critica`, `relatorio-semanal`, `observabilidade`, `seguranca`), iguais à soma dos deltas. `openspec validate --specs --strict` passou nas 7.
-- `openspec validate --archived` reprova change arquivado com caixa sem marca. No ensaio, reprovou `add-registro-avaliacao` (8.6) e `add-observabilidade-seguranca`, que estavam com as tarefas abertas da `main`. Depois das marcações acima, só `add-registro-avaliacao` reprova, pela 8.6. A spec deste change não exige esse comando verde, e o CI não o roda.
+- `openspec validate --archived` reprova change arquivado com caixa sem marca. No ensaio, reprovou os dois changes que tinham tarefa aberta na `main`. Com as pré-condições acima, os cinco passam.
 
-**Depois do arquivamento:** troca de `openspec/changes/<change-id>/` por `openspec/changes/archive/<data>-<change-id>/` nos documentos de entrega, verificação de links (D11), `openspec list` sem os cinco, `openspec list --specs`, `openspec validate --specs --strict` e contagem de requisitos.
+**Depois do arquivamento dos cinco:** troca de `openspec/changes/<change-id>/` por `openspec/changes/archive/<data>-<change-id>/` nos documentos de entrega, verificação de links (D11), `openspec list` sem os cinco, `openspec list --specs`, contagem de requisitos, `openspec validate --specs --strict` e `openspec validate --archived`.
 
-**Arquivamento deste change**, no último commit da branch: `openspec archive add-documentacao-entrega -y`, que cria `openspec/specs/documentacao`. Antes, os links dos documentos para o `qa.md` deste change já apontam para o caminho arquivado, e a verificação de links roda de novo depois do comando. As tarefas que acontecem depois do commit de entrega ficam numa seção sem caixa no `tasks.md` (PR, merge, vídeo, release e envio), para o change não arquivar com caixa aberta.
+**Arquivamento deste change**, no último commit da branch: antes, todas as caixas do `tasks.md` estão marcadas, exceto as da seção 9, e os links para o `qa.md` deste change já apontam para o caminho arquivado. A sessão principal roda `openspec archive add-documentacao-entrega -y`, que cria `openspec/specs/documentacao`, marca as caixas da seção 9 no arquivo já arquivado e roda a validação final: `openspec validate --all --strict`, `openspec validate --archived`, links, sigilo e travessão. As tarefas posteriores ao commit de entrega (PR, release 1.0.1, vídeo, PR do link do vídeo, envio, remoções) ficam numa lista sem caixa, para o change arquivado não ter caixa aberta.
 
-**Referências em texto que não são link:** o incidente e os `qa.md` citam `openspec/changes/<change-id>/qa.md` em texto. São registro histórico e ficam como estão; só os links dos documentos de entrega são ajustados.
+**Referências em texto que não são link:** os `qa.md` citam `openspec/changes/<change-id>/qa.md` em texto. São registro histórico e ficam como estão; só os links dos documentos de entrega são ajustados.
 
 Alternativas descartadas:
-- `--skip-specs`. Não consolidaria as specs, que é o objetivo do arquivamento.
+- `--skip-specs`. Não consolidaria as specs.
 - Mover os diretórios à mão. Perde a consolidação e a validação do CLI.
-- Arquivar antes do merge do PR #16. Os `qa.md` de `add-fundacao-projeto` e `add-observabilidade-seguranca` na branch não têm a seção da release, e o merge depois daria conflito de arquivo movido.
+- Deixar caixa aberta com motivo. Reprova `validate --archived`, que a decisão 3 exige verde.
 
-### D16. Paralelismo
+### D16. Paralelismo e ordem (decisão 6)
 Cada documento tem um único autor por vez, e os agentes trabalham no mesmo checkout porque os arquivos não se sobrepõem.
 
-| Fase | Agentes em paralelo | Arquivos de cada um |
+| Fase e prazo | Agentes em paralelo | Arquivos |
 |---|---|---|
-| Escrita | documentador A | `docs/funcoes.md` |
-| | documentador B | `docs/seguranca.md` e a tabela de cobertura de riscos, que ele entrega à sessão principal para o `qa.md` |
+| Até 11/11 12:00 | documentador R | `docs/relatorio-tech-challenge.md`, `docs/img/arquitetura.mmd` e `docs/img/arquitetura.png` (D8) |
+| | documentador V | `docs/roteiro-video.md` |
+| | qa | leituras da D14 e da D17, `mvn -B verify` para os números do relatório, entregues à sessão principal |
+| Até 11/11 18:00 | documentador A | `docs/funcoes.md` |
+| | documentador B | `docs/seguranca.md` e a tabela de cobertura de riscos, entregue à sessão principal para o `qa.md` |
 | | documentador C | `docs/monitoramento.md` |
-| | documentador D | `docs/roteiro-video.md` |
-| | qa | leituras da D14, `mvn -B verify`, `sam local` (D13) com os arquivos de `docs/sam-local/`, saída entregue à sessão principal |
-| Integração | documentador E, sozinho, depois dos quatro e do qa | `README.md` e `docs/relatorio-tech-challenge.md` |
-| Arquivamento | sessão principal, sozinha | `openspec/` e ajuste de links |
+| | documentador E, por último na fase | `README.md`, com o Mermaid detalhado, e a entrada 1.0.1 do `CHANGELOG.md` |
+| Depois de 11/11 18:00 | qa, depois a sessão principal sozinha | verificações, `qa.md`, arquivamento e ajuste de links |
 
-- O README e o relatório esperam os outros documentos porque apontam para títulos deles. Para não esperar, os títulos de nível 2 de cada documento são os desta design, e os autores não podem mudá-los sem avisar a sessão principal.
+- O relatório sai antes dos documentos para onde aponta. Os links dele são para arquivos, sem âncora (D7), e os títulos de nível 2 de cada documento são os desta design; o autor que precisar mudar um título avisa a sessão principal.
+- O README é o último porque aponta para seções de todos os outros.
 - O `qa.md` deste change e o `tasks.md` são escritos só pela sessão principal enquanto houver agentes em paralelo.
-- `CHANGELOG.md` só muda se a P4 for aprovada, e pelo documentador E.
 
 ### D17. Governança lida no GitHub
 Leituras com `gh api`, só GET, feitas pelo QA e registradas no `qa.md`: `repos/{owner}/{repo}/branches/main/protection` e `.../develop/protection` (check obrigatório, PR obrigatório, aprovação exigida, branch atualizada, bypass de administrador); `repos/{owner}/{repo}/environments` e, para cada ambiente, `deployment-branch-policies` e as regras de proteção (revisor de prod, prevent self-review); `repos/{owner}/{repo}` para conferir que o repositório é público e a branch padrão. O `docs/seguranca.md` só afirma o que essas leituras devolvem.
 
 ## Risks / Trade-offs
 
-- **Prazo:** três dias para escrever seis documentos, arquivar e gravar. Mitigação: quatro documentadores em paralelo e o vídeo independente do commit de entrega. Se faltar tempo, o corte é na profundidade de `docs/funcoes.md` e `docs/monitoramento.md`, nunca no relatório nem no roteiro.
-- **Dependência do PR #16:** a integração e o arquivamento só começam depois do merge e da atualização da branch. A escrita pode começar antes, lendo a `main`.
-- **Sessão SSO expirada:** as leituras da D9, da D14 e da D17 exigem `aws sso login --profile tc4-admin` pelo Gabriel.
-- **Tabela de estado vira retrato:** depois da remoção de hml e prod, o README continua dizendo "ativa em <data>". Mitigação: a data no título da tabela e uma frase dizendo que hml e prod podem ser removidos depois de 13/11 para manter o nível gratuito.
-- **Release 1.0.1 publica versões novas (P4):** mudar a versão nos `pom.xml` muda o nome de `dominio-<versão>.jar` em `lib/` e, portanto, o pacote de cada função. O deploy em hml e prod publica uma nova versão das três funções, com novo snapshot, e o alias `live` de prod sai da versão 1. A tabela do README fica com a versão do dia da conferência. Mitigação: fazer a release depois do vídeo, ou aceitar a versão nova e não citar o número da versão no README.
-- **Mermaid no PDF:** o diagrama só renderiza no GitHub e em ferramentas com suporte a Mermaid. Mitigação: exportar o PDF a partir da página do GitHub e conferir o diagrama antes de enviar.
-- **Backup de sistema da tabela de prod:** com PITR, a remoção da stack deixa a tabela com as descrições do vídeo restaurável por 35 dias. Fica registrado em `docs/seguranca.md` e no roteiro. Apagar o backup é decisão do Gabriel.
+- **Prazo:** depois das verificações e do arquivamento ainda vêm o PR deste change, a release 1.0.1 até prod com aprovação manual, a conferência do SnapStart e o vídeo, tudo antes de 13/11. Se as verificações escorregarem para 12/11, release e vídeo ficam espremidos em 12 e 13/11. Mitigação: o corte, se precisar, é na profundidade de `docs/funcoes.md` e `docs/monitoramento.md`, nunca no relatório nem no roteiro.
+- **Documentos começados antes dos ajustes de 10/11:** relatório e roteiro já estão sendo escritos. Eles precisam refletir a remoção de prod só depois da nota, a pré-condição da release 1.0.1, o `sam local` como não executado e os links sem âncora.
+- **Release 1.0.1 publica versões novas (decisão 4):** mudar a versão nos `pom.xml` muda o nome de `dominio-<versão>.jar` em `lib/` e, portanto, o pacote de cada função. O deploy em hml e prod publica nova versão das três funções, com novo snapshot. Mitigação: conferência de `Active` e `On` em prod logo depois e de novo na preparação do vídeo; o README não cita número de versão.
+- **Tabela de estado vira retrato:** depois da remoção de hml, após 13/11, e de prod, após a nota, o README continua com o estado da data. Mitigação: a data no título da tabela e a frase sobre as remoções previstas.
+- **`sam local` sem execução (decisão 5):** o relatório mostra um comando que ninguém rodou no projeto. Mitigação: a marca de não executado e a resposta tirada da spec, sem log inventado.
+- **Imagem desatualizada:** a `arquitetura.png` pode divergir do `.mmd` se ele mudar sem regenerar. Mitigação: regenerar na tarefa de ajuste e conferir a olho; o mermaid-cli baixa um Chromium na primeira execução pelo `npx`.
+- **Link do vídeo depois do commit:** o relatório entregue no commit tem `[LINK DO VÍDEO]`. Mitigação: PR próprio logo depois da gravação, antes de exportar o PDF.
+- **Dado do aluno em prod até depois da nota:** as descrições do vídeo ficam na tabela, no bucket e no e-mail até a remoção, e o PITR mantém um backup de sistema por 35 dias depois dela. Fica registrado em `docs/seguranca.md` e no roteiro. Apagar o backup é decisão do Gabriel.
 - **E-mail do autor nos commits:** o metadado dos commits do repositório público traz o e-mail do autor do Git. A spec só cobre arquivos versionados. Se for o mesmo endereço do `EMAIL_ADMIN`, ele já está público, e reescrever histórico fica fora do escopo.
-- **`validate --archived` vermelho:** fica vermelho para `add-registro-avaliacao` enquanto a 8.6 estiver aberta. É a forma honesta de registrar uma tarefa que depende de terceiros.
 - **Data no caminho arquivado:** se os cinco arquivamentos rodarem em dias diferentes, os prefixos divergem. Mitigação: rodar todos na mesma sessão e ajustar os links pela listagem real de `openspec/changes/archive/`.
 - **Cobertura dos riscos:** a tabela de cobertura com 44 itens de designs, mais as observações dos `qa.md`, é a parte mais demorada da escrita. Mitigação: o documentador B começa por ela.
 - **Vídeo gera e-mail e dado real em prod:** é o objetivo do bloco 2. Descrições neutras e o `set-alarm-state` único limitam o efeito.
 
 ## Open Questions
 
-As quatro premissas da seção "Pendente de aprovação". Fora delas, nenhuma.
+Nenhuma.
