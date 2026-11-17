@@ -6,6 +6,8 @@ Equipe: Gabriel Andrade Almeida, RM371308
 
 Curso: Pós Tech em Arquitetura e Desenvolvimento Java, FIAP, Fase 4
 
+Repositório: https://github.com/g-andradd/fiap-tc4-feedback-serverless
+
 Vídeo de demonstração: arquivo TC4-Fase4-RM371308-Gabriel-Andrade-Almeida.mp4, enviado junto com esta entrega na plataforma da FIAP
 
 ## 1. Introdução
