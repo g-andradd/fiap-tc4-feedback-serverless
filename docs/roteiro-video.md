@@ -1,8 +1,19 @@
 # Roteiro do vídeo de entrega
 
-Roteiro da gravação em produção: stack `feedback-prod`, região `sa-east-1`, duração estimada de 11 minutos e 30 segundos. A gravação é na quinta, 12/11/2026. O vídeo mostra a aplicação funcionando, as três funções ativas na AWS e as configurações de nuvem, segurança, pipeline e monitoramento.
+Roteiro da gravação em produção: stack `feedback-prod`, região `sa-east-1`, duração estimada de 11 minutos e 30 segundos. O plano era gravar na quinta, 12/11/2026. A gravação foi feita na segunda, 16/11/2026, e os exemplos deste roteiro usam as datas dela. O vídeo mostra a aplicação funcionando, as três funções ativas na AWS e as configurações de nuvem, segurança, pipeline e monitoramento.
 
 Estado em 11/11/2026 (UTC): o roteiro não foi ensaiado em prod. Em prod, só as leituras da preparação têm registro, de 11/11/2026 (UTC), na versão 1.0.0. Os passos do vídeo repetem o que o QA fez em dev e hml, e cada bloco de comando diz onde está o registro.
+
+## Gravação realizada
+
+| Item | Valor |
+|---|---|
+| Data da gravação | 16/11/2026, em prod |
+| Data de referência do relatório manual | `2026-11-17` |
+| Janela do relatório | `2026-11-10` a `2026-11-16` |
+| Chave do relatório manual | `relatorios/2026-11-17.txt` |
+| Relatórios automáticos no bucket de prod | `relatorios/2026-11-09.txt` e `relatorios/2026-11-16.txt`, das execuções agendadas das segundas 09/11 e 16/11 |
+| Entrega | Arquivo MP4 enviado na plataforma da FIAP |
 
 ## Blocos e tempos
 
@@ -31,18 +42,18 @@ As descrições usadas são as da coleção Postman (`Aula muito boa` e `Aula ru
 
 Antes da gravação, faça o roteiro inteiro uma vez em hml, com os mesmos passos e sem gravar a tela. Os POSTs do ensaio gravam na tabela `feedback-avaliacoes-hml`, e o relatório e o alarme rodam na stack `feedback-hml`. Nada disso afeta prod: os ambientes não compartilham tabela, tópico, bucket, alarme nem dashboard ([QA de add-fundacao-projeto](../openspec/changes/archive/2026-11-11-add-fundacao-projeto/qa.md), seção "Release 1.0.0 em hml", item 6).
 
-**Como adaptar os passos.** Use os blocos de comando deste roteiro trocando `feedback-prod` por `feedback-hml` e o sufixo `-prod` por `-hml` em todos os nomes: funções, tabela, tópicos, alarmes, agendamento e dashboard. No Postman, ponha no `baseUrl` a URL de hml, lida no output `ApiAvaliacoesUrl` de `feedback-hml`. A data de referência do ensaio é o dia seguinte ao do ensaio, não `2026-11-13`, a menos que o ensaio seja no próprio dia 12/11.
+**Como adaptar os passos.** Use os blocos de comando deste roteiro trocando `feedback-prod` por `feedback-hml` e o sufixo `-prod` por `-hml` em todos os nomes: funções, tabela, tópicos, alarmes, agendamento e dashboard. No Postman, ponha no `baseUrl` a URL de hml, lida no output `ApiAvaliacoesUrl` de `feedback-hml`. A data de referência do ensaio é o dia seguinte ao do ensaio, não `2026-11-17`, a menos que o ensaio seja no próprio dia 16/11.
 
 **O que muda em hml:**
 
 - A release 1.0.1 passa por hml antes de prod, pela branch de release. Confira o SnapStart nas três funções de hml depois desse deploy.
-- A tabela de hml não começa vazia. A leitura de 11/11/2026 (UTC) encontrou `Count` 2: as duas avaliações de QA de 07/11, com notas 2 e 9 ([QA de add-documentacao-entrega](../openspec/changes/archive/2026-11-11-add-documentacao-entrega/qa.md), seção "Leitura de dev e hml (tarefa 2.1)"). Com referência em 12/11 ou 13/11, a janela inclui 07/11, e o relatório do ensaio traz 4 avaliações: média 5,50, `CRITICA: 2`, `MEDIA: 0`, `BAIXA: 2`, com 2 no dia 07/11 e 2 no dia do ensaio. Em prod, o esperado continua o do bloco 2.
-- O bucket de hml já tem `relatorios/2026-11-08.txt` e `relatorios/2026-11-09.txt` (mesma leitura).
+- A tabela de hml não começa vazia. A leitura de 11/11/2026 (UTC) encontrou `Count` 2: as duas avaliações de QA de 07/11, com notas 2 e 9 ([QA de add-documentacao-entrega](../openspec/changes/archive/2026-11-11-add-documentacao-entrega/qa.md), seção "Leitura de dev e hml (tarefa 2.1)"). Com referência até `2026-11-14`, a janela inclui 07/11, e o relatório do ensaio traz 4 avaliações: média 5,50, `CRITICA: 2`, `MEDIA: 0`, `BAIXA: 2`, com 2 no dia 07/11 e 2 no dia do ensaio. Com referência a partir de `2026-11-15`, as de 07/11 ficam fora da janela, e o relatório traz só as 2 do ensaio: média 5,50, `CRITICA: 1`, `MEDIA: 0`, `BAIXA: 1`. Em prod, o esperado continua o do bloco 2.
+- Na leitura de 11/11/2026 (UTC), o bucket de hml tinha `relatorios/2026-11-08.txt` e `relatorios/2026-11-09.txt`.
 - O pipeline de hml não tem aprovação manual. No passo 4.2, só abra a execução do Deploy na branch de release.
 
 **E-mails de hml.** O ensaio manda e-mails reais pelos tópicos `feedback-admins-hml` e `feedback-alarmes-hml`: o aviso crítico, o aviso do relatório e o alarme. O aviso crítico tem o mesmo assunto em hml e em prod, `Avaliação crítica registrada`, e não diz o ambiente. Antes de gravar, tire os e-mails do ensaio da pasta que vai aparecer no vídeo.
 
-**Depois do ensaio:** confira que o `baseUrl` do Postman voltou para a URL de prod e que o terminal usa os nomes com `-prod`. Os itens do ensaio ficam na tabela de hml até a remoção da stack, depois da entrega.
+**Depois do ensaio:** confira que o `baseUrl` do Postman voltou para a URL de prod e que o terminal usa os nomes com `-prod`. Os itens do ensaio ficam na tabela de hml até a remoção da stack, depois de 17/11/2026.
 
 ## Preparação
 
@@ -56,9 +67,9 @@ Nada da preparação aparece no vídeo. Nenhum passo grava item na tabela `feedb
 
 | Dia da gravação | Data de referência | Janela do relatório |
 |---|---|---|
-| 12/11/2026, quinta | `2026-11-13` | `2026-11-06` a `2026-11-12` |
+| 16/11/2026, segunda | `2026-11-17` | `2026-11-10` a `2026-11-16` |
 
-Se a gravação mudar de dia, troque `2026-11-13` nos blocos 2.6 a 2.8 e em "Depois da gravação" pela data do dia seguinte.
+O plano era gravar em 12/11/2026, com a referência `2026-11-13` e a janela de `2026-11-06` a `2026-11-12`. A gravação foi em 16/11/2026, e os blocos 2.4 a 2.8 e "Depois da gravação" usam as datas dela.
 
 ### Conferências de leitura
 
@@ -177,7 +188,7 @@ O aquecimento faz o dashboard de prod mostrar essas chamadas também. Sem ele, o
 - [ ] Postman com o `baseUrl` de prod, sem `/avaliacao`, e as três requisições abertas
 - [ ] Abas abertas e terminal limpo
 - [ ] Ensaio em hml feito, e-mails do ensaio fora da pasta do vídeo
-- [ ] Gravação em 12/11/2026, com a referência `2026-11-13` no payload
+- [ ] Gravação em 16/11/2026, com a referência `2026-11-17` no payload
 
 ## Bloco 1. Abertura (0:00 a 1:00)
 
@@ -212,7 +223,7 @@ Tudo é criado por um template do SAM e implantado pelo GitHub Actions. Cada bra
 
 O aviso chega em segundos: em hml, foi publicado cerca de 4 s depois do registro.
 
-**Mostre:** a caixa de e-mail e a mensagem com o assunto `Avaliação crítica registrada`. No corpo, `Uma avaliação crítica foi registrada.`, `Urgência: CRITICA`, `Data de envio: 2026-11-12` e `Descrição: Aula ruim`. Desfoque o destinatário e o rodapé.
+**Mostre:** a caixa de e-mail e a mensagem com o assunto `Avaliação crítica registrada`. No corpo, `Uma avaliação crítica foi registrada.`, `Urgência: CRITICA`, `Data de envio: 2026-11-16` e `Descrição: Aula ruim`. Desfoque o destinatário e o rodapé.
 
 **Fale:** "O e-mail traz o que o enunciado pede: descrição, urgência e data de envio. A função de registro não depende do aviso. Se o SNS falhar, a gravação continua valendo, e o Lambda tenta publicar de novo."
 
@@ -234,32 +245,32 @@ aws lambda invoke \
   --region sa-east-1 --profile tc4-admin \
   --cli-binary-format raw-in-base64-out \
   --cli-read-timeout 150 \
-  --payload '{"dataReferencia":"2026-11-13"}' \
+  --payload '{"dataReferencia":"2026-11-17"}' \
   resposta.json
 cat resposta.json
 ```
 
-Esperado: `StatusCode` 200, sem `FunctionError`, e `ExecutedVersion` com o número da versão publicada. Em `resposta.json`, em ordem não garantida, `"quantidadeAvaliacoes":2`, `"dataReferencia":"2026-11-13"` e `"chave":"relatorios/2026-11-13.txt"`. A resposta não traz o bucket.
+Esperado: `StatusCode` 200, sem `FunctionError`, e `ExecutedVersion` com o número da versão publicada. Em `resposta.json`, em ordem não garantida, `"quantidadeAvaliacoes":2`, `"dataReferencia":"2026-11-17"` e `"chave":"relatorios/2026-11-17.txt"`. A resposta não traz o bucket.
 
 **Fale:** "Aciono a função pelo alias live, o mesmo que o agendamento usa. A versão executada é uma versão publicada, que é onde o SnapStart vale. Duas avaliações na janela: a de 400 não foi gravada."
 
 ### 2.7 Objeto no S3 (40 s)
 
-**Mostre:** o console do S3, no bucket de prod, prefixo `relatorios/`. A listagem tem dois objetos: `relatorios/2026-11-09.txt`, de 351 bytes, gravado pela execução agendada de 09/11 com a semana vazia, e `relatorios/2026-11-13.txt`, que acabou de ser criado. Antes do vídeo, o de 09/11 é o único objeto do bucket ([QA de add-observabilidade-seguranca](../openspec/changes/archive/2026-11-11-add-observabilidade-seguranca/qa.md), seção "Prod, release 1.0.0 (leitura)", Tabela e bucket de prod). Abra o novo e mostre:
+**Mostre:** o console do S3, no bucket de prod, prefixo `relatorios/`. A listagem tem três objetos: `relatorios/2026-11-09.txt`, de 351 bytes, gravado pela execução agendada de 09/11 com a semana vazia; `relatorios/2026-11-16.txt`, da execução agendada da manhã da gravação; e `relatorios/2026-11-17.txt`, que acabou de ser criado. Na leitura de 11/11/2026 (UTC), o de 09/11 era o único objeto do bucket ([QA de add-observabilidade-seguranca](../openspec/changes/archive/2026-11-11-add-observabilidade-seguranca/qa.md), seção "Prod, release 1.0.0 (leitura)", Tabela e bucket de prod). Abra o novo e mostre:
 
-- `Ambiente: prod`, `Data de referência: 2026-11-13` e `Janela: 2026-11-06 a 2026-11-12`
+- `Ambiente: prod`, `Data de referência: 2026-11-17` e `Janela: 2026-11-10 a 2026-11-16`
 - `Média das notas: 5,50`
 - `CRITICA: 1`, `MEDIA: 0`, `BAIXA: 1`
-- os 7 dias da janela, de `2026-11-06` a `2026-11-12`, com 2 em `2026-11-12` e 0 nos outros
-- `Avaliações (2)`, com `Aula muito boa` em `BAIXA` e `Aula ruim` em `CRITICA`, cada uma com `Data de envio: 2026-11-12`
+- os 7 dias da janela, de `2026-11-10` a `2026-11-16`, com 2 em `2026-11-16` e 0 nos outros
+- `Avaliações (2)`, com `Aula muito boa` em `BAIXA` e `Aula ruim` em `CRITICA`, cada uma com `Data de envio: 2026-11-16`
 
 Desfoque o nome do bucket e a barra de endereço da aba do objeto.
 
-**Fale:** "O relatório traz a lista com descrição, urgência e data, a quantidade por dia e por urgência e a média das notas. A nota individual não aparece. O bucket é privado, com criptografia e acesso só por TLS. O arquivo de 9 de novembro é da execução agendada de segunda, que mostro no próximo bloco."
+**Fale:** "O relatório traz a lista com descrição, urgência e data, a quantidade por dia e por urgência e a média das notas. A nota individual não aparece. O bucket é privado, com criptografia e acesso só por TLS. Os arquivos de 9 e de 16 de novembro são das execuções agendadas das segundas, que mostro no próximo bloco."
 
 ### 2.8 Aviso do relatório (30 s)
 
-**Mostre:** o e-mail com o assunto `Relatório semanal 2026-11-13`. O corpo começa com `Relatório semanal gerado.` e traz ambiente, janela, média e totais. Desfoque as linhas `Bucket:` e `Localização:`, o destinatário e o rodapé.
+**Mostre:** o e-mail com o assunto `Relatório semanal 2026-11-17`. O corpo começa com `Relatório semanal gerado.` e traz ambiente, janela, média e totais. Desfoque as linhas `Bucket:` e `Localização:`, o destinatário e o rodapé.
 
 **Fale:** "O aviso aos administradores tem só os números e onde o arquivo está. As descrições ficam no bucket, que só abre com credencial da conta."
 
@@ -289,7 +300,7 @@ O gatilho fica no alias porque o template liga a integração da API ao `live`: 
 
 **Mostre:** no EventBridge, em Scheduler, o agendamento `feedback-relatorio-semanal-prod`: `cron(0 8 ? * MON *)`, fuso `America/Sao_Paulo`, estado ativado e alvo no alias `live` da função de relatório. Desfoque o ARN do alvo.
 
-**Fale:** "O agendamento roda toda segunda às 8 horas de São Paulo. O arquivo de 9 de novembro que apareceu no bucket é a execução de segunda passada, sem avaliações, porque a tabela de prod estava vazia."
+**Fale:** "O agendamento roda toda segunda às 8 horas de São Paulo. Os arquivos de 9 e de 16 de novembro que apareceram no bucket vieram dele. O de 9 de novembro saiu sem avaliações, porque a tabela de prod estava vazia."
 
 O disparo de 09/11 às 08:00 em São Paulo está em [QA de add-relatorio-semanal](../openspec/changes/archive/2026-11-11-add-relatorio-semanal/qa.md), seção "Execução agendada real, 09/11/2026".
 
@@ -388,14 +399,14 @@ Decisão do Gabriel em 10/11/2026: nada é apagado à mão em prod.
 **O que fica em prod:**
 
 - Na tabela `feedback-avaliacoes-prod`, as duas avaliações do vídeo, `Aula muito boa` e `Aula ruim`.
-- No bucket, `relatorios/2026-11-09.txt` e `relatorios/2026-11-13.txt`.
+- No bucket, `relatorios/2026-11-09.txt`, `relatorios/2026-11-16.txt` e `relatorios/2026-11-17.txt`.
 - Na caixa do Gabriel, os e-mails do aviso crítico, do aviso do relatório e do alarme.
 - Nos grupos de log de prod, as linhas das invocações, por 30 dias.
-- O agendamento continua ativo. Na segunda, 16/11/2026, às 08:00 em São Paulo, ele grava `relatorios/2026-11-16.txt`, com a janela de 09/11 a 15/11, que inclui as avaliações do vídeo, e manda o aviso do relatório por e-mail.
+- O agendamento continua ativo. Na segunda, 23/11/2026, às 08:00 em São Paulo, ele grava `relatorios/2026-11-23.txt`, com a janela de 16/11 a 22/11, que inclui as avaliações do vídeo, e manda o aviso do relatório por e-mail.
 
-**hml** fica no ar até a entrega, em 13/11/2026, e só é removida depois dela, não depois do ensaio nem da gravação. A remoção segue o procedimento de remoção de stack do [README](../README.md), com o bucket de hml esvaziado antes. Os itens e os relatórios do ensaio saem junto com a stack. A remoção não afeta prod: os ambientes não compartilham recursos ([QA de add-fundacao-projeto](../openspec/changes/archive/2026-11-11-add-fundacao-projeto/qa.md), seção "Release 1.0.0 em hml", item 6).
+**hml** fica no ar até 17/11/2026 e só é removida depois dessa data, não depois do ensaio nem da gravação. A remoção segue o procedimento de remoção de stack do [README](../README.md), com o bucket de hml esvaziado antes. Os itens e os relatórios do ensaio saem junto com a stack. A remoção não afeta prod: os ambientes não compartilham recursos ([QA de add-fundacao-projeto](../openspec/changes/archive/2026-11-11-add-fundacao-projeto/qa.md), seção "Release 1.0.0 em hml", item 6).
 
-**prod** fica no ar até a nota da FIAP, não só até 13/11. Enquanto isso:
+**prod** fica no ar até a divulgação da nota da FIAP. Enquanto isso:
 
 - Uma função Java com SnapStart que passa 14 dias sem invocação perde o snapshot, e a chamada seguinte falha com `SnapStartNotReadyException` até a versão voltar a `Active`. O relatório é invocado toda segunda, mas o registro e a notificação dependem de tráfego. Se a nota demorar, confira o passo 1 da preparação antes de alguém testar a API.
 

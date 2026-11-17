@@ -6,7 +6,7 @@ Equipe: Gabriel Andrade Almeida, RM371308
 
 Curso: Pós Tech em Arquitetura e Desenvolvimento Java, FIAP, Fase 4
 
-Vídeo de demonstração: [LINK DO VÍDEO]
+Vídeo de demonstração: arquivo [NOME_DO_ARQUIVO].mp4, enviado junto com esta entrega na plataforma da FIAP
 
 ## 1. Introdução
 
@@ -180,7 +180,7 @@ Features nascem de `develop` como `feature/<change-id>`. A release nasce de `dev
 | Ambiente | Situação |
 |---|---|
 | dev | As três funções implantadas e conferidas em 05 e 06/11/2026, com registro, aviso crítico, relatório manual, alarmes, dashboard e medição do SnapStart. O relatório agendado de 09/11/2026 rodou com 43 avaliações, média 4,60 |
-| hml | Release 1.0.0 implantada em 07/11/2026. Registro, aviso crítico, relatório manual, alarme e isolamento em relação a dev conferidos. O relatório agendado de 09/11/2026 rodou com 2 avaliações, média 5,50. A stack é removida depois da entrega, em 13/11/2026 |
+| hml | Release 1.0.0 implantada em 07/11/2026. Registro, aviso crítico, relatório manual, alarme e isolamento em relação a dev conferidos. O relatório agendado de 09/11/2026 rodou com 2 avaliações, média 5,50. A stack é removida depois de 17/11/2026 |
 | prod | Release 1.0.0 implantada em 08/11/2026, com aprovação manual e a tag `v1.0.0`. A leitura de 11/11/2026 encontrou as três funções `Active` e `On` com 1024 MB, retenção de 30 dias, alarmes em OK com ação só no tópico de prod, agendamento ativo, assinaturas confirmadas e a tabela vazia. O relatório agendado de 09/11/2026 rodou com a semana vazia. Esta documentação é publicada na release 1.0.1, e a conferência só de leitura do SnapStart em prod depois dela é feita antes da gravação e não fica registrada no repositório. A stack fica até a divulgação da nota |
 
 Nos três ambientes, o relatório agendado saiu idêntico byte a byte ao texto montado a partir da tabela, o aviso foi publicado e entregue, e os alarmes ficaram em OK. O estado por função e ambiente fica no [README.md](../README.md).
@@ -297,7 +297,7 @@ Por que esse modelo:
 - **Carga intermitente.** As avaliações seguem o calendário das aulas, e o relatório roda uma vez por semana. Não há carga contínua. Com Lambda, DynamoDB on-demand e SNS, o custo acompanha o uso e fica perto de zero sem tráfego.
 - **Eventos nativos.** O aviso crítico nasce da gravação, pelo Streams com filtro, e o relatório nasce de um agendamento. Nenhum código fica de vigia esperando trabalho.
 - **Uma responsabilidade por função.** Cada função tem o próprio gatilho, a própria role e o próprio alarme, o que limita o efeito de uma falha e o alcance de cada permissão.
-- **Três ambientes baratos.** Cada ambiente é uma stack do mesmo template na mesma conta, isolado por nome de recurso e por role. Hml é removido com `sam delete` depois da entrega, em 13/11/2026, e prod fica até a divulgação da nota.
+- **Três ambientes baratos.** Cada ambiente é uma stack do mesmo template na mesma conta, isolado por nome de recurso e por role. Hml é removido com `sam delete` depois de 17/11/2026, e prod fica até a divulgação da nota.
 - **Região `sa-east-1`,** pela proximidade com os usuários e pela residência dos dados no Brasil.
 
 **Custo no nível gratuito:**
