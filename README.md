@@ -82,7 +82,7 @@ A urgência sai da nota: 0 a 3 é `CRITICA`, 4 a 6 é `MEDIA` e 7 a 10 é `BAIXA
 - Na execução agendada de 09/11/2026, cada ambiente gravou `relatorios/2026-11-09.txt` idêntico, byte a byte, ao texto montado a partir da tabela, e o aviso foi entregue no tópico de administradores. Em prod, a semana estava vazia.
 - A stack `feedback-dev` recebeu um deploy às 21:35 UTC de 10/11/2026 (execução 42906193011 do workflow Deploy, merge do PR #16), depois das conferências acima, e o alias `live` das três funções de dev passou a apontar para versões novas. A leitura de 11/11/2026 (UTC), na seção "Leitura de dev e hml (tarefa 2.1)" do [QA de add-documentacao-entrega](openspec/changes/archive/2026-11-11-add-documentacao-entrega/qa.md), encontrou as três em `Active`, SnapStart `On` e 1024 MB, sem invocação desde o deploy e com a tabela de dev inalterada. Essas versões não têm conferência funcional.
 - A tabela não cita número de versão, porque cada deploy publica versões novas das funções.
-- hml pode ser removido depois da entrega, em 13/11/2026, e prod fica no ar até a divulgação da nota da FIAP. Nos dois casos, o bucket é esvaziado antes do `sam delete`, como em [7. Remover uma stack](#7-remover-uma-stack). Essas remoções acontecem depois desta versão do README e não aparecem na tabela.
+- hml pode ser removido depois de 17/11/2026, e prod fica no ar até a divulgação da nota da FIAP. Nos dois casos, o bucket é esvaziado antes do `sam delete`, como em [7. Remover uma stack](#7-remover-uma-stack). Essas remoções acontecem depois desta versão do README e não aparecem na tabela.
 
 ## Documentação
 
@@ -97,6 +97,8 @@ A urgência sai da nota: 0 a 3 é `CRITICA`, 4 a 6 é `MEDIA` e 7 a 10 é `BAIXA
 | [CHANGELOG.md](CHANGELOG.md) | O que entrou em cada versão |
 | [docs/incidentes/2026-11-04-snapstart-aspectjrt.md](docs/incidentes/2026-11-04-snapstart-aspectjrt.md) | Incidente dos primeiros deploys em dev: SnapStart, `aspectjrt` e permissão de tag no Stage da API |
 | [openspec/project.md](openspec/project.md) | Contexto, regras de domínio, Gitflow e pendências pós-entrega |
+
+O vídeo de demonstração foi gravado em prod em 16/11/2026, seguindo o [roteiro](docs/roteiro-video.md), e entregue como arquivo na plataforma da FIAP. Ele não fica no repositório.
 
 As specs consolidadas ficam em `openspec/specs/`, uma por capability. Os registros de QA, com a evidência de cada conferência na AWS, ficam no `qa.md` de cada change: [add-fundacao-projeto](openspec/changes/archive/2026-11-11-add-fundacao-projeto/qa.md), [add-registro-avaliacao](openspec/changes/archive/2026-11-11-add-registro-avaliacao/qa.md), [add-notificacao-critica](openspec/changes/archive/2026-11-11-add-notificacao-critica/qa.md), [add-relatorio-semanal](openspec/changes/archive/2026-11-11-add-relatorio-semanal/qa.md) e [add-observabilidade-seguranca](openspec/changes/archive/2026-11-11-add-observabilidade-seguranca/qa.md).
 
@@ -359,7 +361,7 @@ Esperado: `1` e `0` nos dois tópicos. Com `0` e `1`, a confirmação ainda não
 
 ### 7. Remover uma stack
 
-O CloudFormation só exclui bucket vazio, então o bucket de relatórios precisa ser esvaziado antes do `sam delete`. Rode com o perfil administrativo, porque as roles de deploy não excluem a stack. Plano: hml pode ser removido depois da entrega, em 13/11/2026, e prod só depois da divulgação da nota da FIAP.
+O CloudFormation só exclui bucket vazio, então o bucket de relatórios precisa ser esvaziado antes do `sam delete`. Rode com o perfil administrativo, porque as roles de deploy não excluem a stack. Plano: hml pode ser removido depois de 17/11/2026, e prod só depois da divulgação da nota da FIAP.
 
 Não executado: até 11/11/2026, nenhuma stack foi removida e o procedimento não rodou em nenhum ambiente.
 

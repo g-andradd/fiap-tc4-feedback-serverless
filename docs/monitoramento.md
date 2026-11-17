@@ -383,7 +383,7 @@ Esperado com os três ambientes: 9 alarmes `feedback-falha-*` em `sa-east-1`, o 
 - **Não crie alarme de teste**, nem temporário, e nenhum dashboard a mais. Qualquer um sai do nível gratuito. Para testar, use os alarmes que existem, como na seção Teste de alarme, acima.
 - Não troque a métrica de um alarme por matemática de métricas nem por consulta Metrics Insights. A primeira cobra cada métrica da expressão, e a segunda sai do nível gratuito.
 - Não use período abaixo de 60 s, que é alta resolução e também sai do nível gratuito.
-- hml pode ser removido depois da entrega, em 13/11/2026, e prod fica no ar até a divulgação da nota da FIAP. Cada remoção libera 3 métricas de alarme e 1 dashboard.
+- hml pode ser removido depois de 17/11/2026, e prod fica no ar até a divulgação da nota da FIAP. Cada remoção libera 3 métricas de alarme e 1 dashboard.
 
 **Outros limites que o projeto usa:**
 
