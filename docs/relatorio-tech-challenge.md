@@ -6,7 +6,7 @@ Equipe: Gabriel Andrade Almeida, RM371308
 
 Curso: Pós Tech em Arquitetura e Desenvolvimento Java, FIAP, Fase 4
 
-Vídeo de demonstração: arquivo [NOME_DO_ARQUIVO].mp4, enviado junto com esta entrega na plataforma da FIAP
+Vídeo de demonstração: arquivo TC4-Fase4-RM371308-Gabriel-Andrade-Almeida.mp4, enviado junto com esta entrega na plataforma da FIAP
 
 ## 1. Introdução
 
